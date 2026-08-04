@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard — ChatBot Hub</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">💬</div>
+        <div class="brand-name">ChatBot Hub</div>
+      </div>
+
+      <ul class="nav-menu">
+        <li><a href="index.html" class="nav-link active">📊 Dashboard</a></li>
+        <li><a href="inbox.html" class="nav-link">💬 Bandeja de Entrada</a></li>
+        <li><a href="knowledge.html" class="nav-link">📚 Base de Conocimiento</a></li>
+        <li><a href="settings.html" class="nav-link">⚙️ Configuración</a></li>
+      </ul>
+
+      <div class="user-profile">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Admin</div>
+          <div class="user-role" id="user-role">Administrador</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Cerrar Sesión">🚪</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <div class="header-title">
+          <h1>Dashboard Principal</h1>
+          <p>Visión general del estado del chatbot y canales de atención</p>
+        </div>
+        <a href="inbox.html" class="btn btn-primary">💬 Abrir Inbox en Vivo</a>
+      </div>
+
+      <div class="content-body">
+        <!-- Metric Cards -->
+        <div class="grid-4">
+          <div class="stat-card">
+            <div class="stat-icon blue">💬</div>
+            <div>
+              <div class="stat-val" id="stat-total-conversations">0</div>
+              <div class="stat-label">Conversaciones Totales</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon green">⚡</div>
+            <div>
+              <div class="stat-val" id="stat-open-conversations">0</div>
+              <div class="stat-label">Conversaciones Activas</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon amber">👥</div>
+            <div>
+              <div class="stat-val" id="stat-total-contacts">0</div>
+              <div class="stat-label">Contactos Registrados</div>
+            </div>
+          </div>
+
+          <div class="stat-card">
+            <div class="stat-icon purple">📩</div>
+            <div>
+              <div class="stat-val" id="stat-messages-today">0</div>
+              <div class="stat-label">Mensajes de Hoy</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Channels Overview -->
+        <h2 style="font-size: 1.2rem; margin-bottom: 15px;">Canales de Comunicación</h2>
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Canal</th>
+                <th>Estado</th>
+                <th>Conversaciones</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><strong>📱 WhatsApp Cloud API (Oficial)</strong></td>
+                <td><span class="badge badge-whatsapp_cloud">Configurable</span></td>
+                <td id="count-wa-cloud">0</td>
+                <td><a href="settings.html" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">Configurar Meta</a></td>
+              </tr>
+              <tr>
+                <td><strong>🟢 WhatsApp Evolution API (No Oficial)</strong></td>
+                <td><span class="badge badge-whatsapp_evolution">Configurable</span></td>
+                <td id="count-wa-evolution">0</td>
+                <td><a href="settings.html" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">Conectar QR</a></td>
+              </tr>
+              <tr>
+                <td><strong>🌐 Widget Web Chat</strong></td>
+                <td><span class="badge badge-webchat">Activo</span></td>
+                <td id="count-webchat">0</td>
+                <td><a href="settings.html" class="btn btn-secondary" style="padding: 6px 12px; font-size: 0.8rem;">Ver Script Embebible</a></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    async function loadDashboardStats() {
+      try {
+        const data = await apiFetch('/stats');
+        document.getElementById('stat-total-conversations').textContent = data.total_conversations;
+        document.getElementById('stat-open-conversations').textContent = data.open_conversations;
+        document.getElementById('stat-total-contacts').textContent = data.total_contacts;
+        document.getElementById('stat-messages-today').textContent = data.messages_today;
+
+        // Channel breakdown
+        if (data.channel_stats) {
+          data.channel_stats.forEach(ch => {
+            if (ch.channel === 'whatsapp_cloud') document.getElementById('count-wa-cloud').textContent = ch.count;
+            if (ch.channel === 'whatsapp_evolution') document.getElementById('count-wa-evolution').textContent = ch.count;
+            if (ch.channel === 'webchat') document.getElementById('count-webchat').textContent = ch.count;
+          });
+        }
+      } catch (err) {
+        console.error('Error cargando stats:', err);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadDashboardStats);
+  </script>
+</body>
+</html>

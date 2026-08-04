@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuración — ChatBot Hub</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">💬</div>
+        <div class="brand-name">ChatBot Hub</div>
+      </div>
+
+      <ul class="nav-menu">
+        <li><a href="index.html" class="nav-link">📊 Dashboard</a></li>
+        <li><a href="inbox.html" class="nav-link">💬 Bandeja de Entrada</a></li>
+        <li><a href="knowledge.html" class="nav-link">📚 Base de Conocimiento</a></li>
+        <li><a href="settings.html" class="nav-link active">⚙️ Configuración</a></li>
+      </ul>
+
+      <div class="user-profile">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Admin</div>
+          <div class="user-role" id="user-role">Administrador</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Cerrar Sesión">🚪</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <div class="header-title">
+          <h1>Configuración del Sistema</h1>
+          <p>Configura tus canales de WhatsApp, proveedor de Inteligencia Artificial y claves API</p>
+        </div>
+      </div>
+
+      <div class="content-body">
+        <!-- Tab Nav -->
+        <div style="display: flex; gap: 10px; margin-bottom: 25px; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">
+          <button class="btn btn-accent" id="tab-btn-general" onclick="showTab('general')">⚙️ General y Bot</button>
+          <button class="btn btn-secondary" id="tab-btn-wa" onclick="showTab('wa')">📱 WhatsApp (Meta & QR)</button>
+          <button class="btn btn-secondary" id="tab-btn-ai" onclick="showTab('ai')">🤖 Motor de IA</button>
+          <button class="btn btn-secondary" id="tab-btn-widget" onclick="showTab('widget')">🌐 Widget Web</button>
+          <button class="btn btn-secondary" id="tab-btn-apikeys" onclick="showTab('apikeys')">🔌 API Keys Sistema</button>
+        </div>
+
+        <!-- TAB 1: GENERAL -->
+        <div id="tab-general">
+          <div class="stat-card" style="flex-direction: column; align-items: flex-start; max-width: 700px;">
+            <h2 style="font-size: 1.2rem; margin-bottom: 15px;">Comportamiento del Bot</h2>
+            
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Estado del Bot</label>
+              <select id="setting-BOT_ENABLED" class="form-control">
+                <option value="true">🟢 Habilitado (Responde automáticamente)</option>
+                <option value="false">🔴 Deshabilitado (Solo atención humana manual)</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Mensaje de Bienvenida</label>
+              <textarea id="setting-WELCOME_MESSAGE" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Mensaje Fuera de Horario</label>
+              <textarea id="setting-OUT_OF_HOURS_MESSAGE" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div style="display: flex; gap: 15px; width: 100%;">
+              <div class="form-group" style="flex: 1;">
+                <label class="form-label">Hora Inicio Atención</label>
+                <input type="text" id="setting-BUSINESS_HOURS_START" class="form-control" placeholder="08:00">
+              </div>
+              <div class="form-group" style="flex: 1;">
+                <label class="form-label">Hora Fin Atención</label>
+                <input type="text" id="setting-BUSINESS_HOURS_END" class="form-control" placeholder="17:00">
+              </div>
+            </div>
+
+            <button class="btn btn-accent" onclick="saveSettings()">Guardar Ajustes Generales</button>
+          </div>
+        </div>
+
+        <!-- TAB 2: WHATSAPP -->
+        <div id="tab-wa" style="display: none;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 25px;">
+            <!-- Meta Cloud API -->
+            <div class="stat-card" style="flex-direction: column; align-items: flex-start;">
+              <h2 style="font-size: 1.1rem; margin-bottom: 10px;">📱 WhatsApp Cloud API (Meta Oficial)</h2>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
+                Configura tu app de Meta Developers. URL de Webhook: <code>https://tu-dominio.com/webhook/whatsapp-cloud</code>
+              </p>
+
+              <div class="form-group" style="width: 100%;">
+                <label class="form-label">Phone Number ID</label>
+                <input type="text" id="setting-WA_CLOUD_PHONE_NUMBER_ID" class="form-control" placeholder="Ej: 109823487234">
+              </div>
+
+              <div class="form-group" style="width: 100%;">
+                <label class="form-label">Permanent Access Token</label>
+                <input type="password" id="setting-WA_CLOUD_ACCESS_TOKEN" class="form-control" placeholder="EAAB...">
+              </div>
+
+              <div class="form-group" style="width: 100%;">
+                <label class="form-label">Verify Token (Configurado en Meta)</label>
+                <input type="text" id="setting-WA_CLOUD_VERIFY_TOKEN" class="form-control" placeholder="chatbot_meta_verify_token_2026">
+              </div>
+
+              <button class="btn btn-accent" onclick="saveSettings()">Guardar Configuración Meta</button>
+            </div>
+
+            <!-- Evolution API -->
+            <div class="stat-card" style="flex-direction: column; align-items: flex-start;">
+              <h2 style="font-size: 1.1rem; margin-bottom: 10px;">🟢 Evolution API (Alternativa No Oficial QR)</h2>
+              <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
+                Conecta una instancia de Evolution API corriendo en tu servidor para escanear el QR.
+              </p>
+
+              <div class="form-group" style="width: 100%;">
+                <label class="form-label">URL del Servidor Evolution API</label>
+                <input type="text" id="setting-EVOLUTION_API_URL" class="form-control" placeholder="http://localhost:8080">
+              </div>
+
+              <div class="form-group" style="width: 100%;">
+                <label class="form-label">API Key Global / Instancia</label>
+                <input type="password" id="setting-EVOLUTION_API_KEY" class="form-control" placeholder="Tu API Key">
+              </div>
+
+              <div class="form-group" style="width: 100%;">
+                <label class="form-label">Nombre de la Instancia</label>
+                <input type="text" id="setting-EVOLUTION_INSTANCE_NAME" class="form-control" placeholder="chatbot_instance">
+              </div>
+
+              <button class="btn btn-accent" onclick="saveSettings()">Guardar Evolution API</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB 3: IA -->
+        <div id="tab-ai" style="display: none;">
+          <div class="stat-card" style="flex-direction: column; align-items: flex-start; max-width: 700px;">
+            <h2 style="font-size: 1.2rem; margin-bottom: 15px;">🤖 Configuración de Inteligencia Artificial</h2>
+            
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Proveedor de IA</label>
+              <select id="setting-AI_PROVIDER" class="form-control">
+                <option value="none">Ninguno (Solo respuestas predefinidas FAQ)</option>
+                <option value="openai">OpenAI (ChatGPT GPT-3.5/GPT-4)</option>
+                <option value="gemini">Google Gemini AI</option>
+              </select>
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">OpenAI API Key</label>
+              <input type="password" id="setting-OPENAI_API_KEY" class="form-control" placeholder="sk-...">
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Google Gemini API Key</label>
+              <input type="password" id="setting-GEMINI_API_KEY" class="form-control" placeholder="AIzaSy...">
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Prompt del Sistema / Personalidad del Bot</label>
+              <textarea id="setting-AI_SYSTEM_PROMPT" class="form-control" rows="5"></textarea>
+            </div>
+
+            <button class="btn btn-accent" onclick="saveSettings()">Guardar Ajustes de IA</button>
+          </div>
+        </div>
+
+        <!-- TAB 4: WIDGET WEB -->
+        <div id="tab-widget" style="display: none;">
+          <div class="stat-card" style="flex-direction: column; align-items: flex-start; max-width: 750px;">
+            <h2 style="font-size: 1.2rem; margin-bottom: 10px;">🌐 Widget Chat Web Embebible</h2>
+            <p style="font-size: 0.9rem; color: var(--text-muted); margin-bottom: 20px;">
+              Copia y pega este código HTML justo antes de la etiqueta <code>&lt;/body&gt;</code> en cualquier página web para activar la burbuja de chat en vivo.
+            </p>
+
+            <div style="background: #0f172a; border: 1px solid var(--border-color); padding: 15px; border-radius: var(--radius-md); width: 100%; font-family: monospace; font-size: 0.85rem; color: #a7f3d0; white-space: pre-wrap;" id="widget-code-box">
+            </div>
+
+            <button class="btn btn-secondary" style="margin-top: 15px;" onclick="copyWidgetCode()">📋 Copiar Código al Portapapeles</button>
+          </div>
+        </div>
+
+        <!-- TAB 5: API KEYS SISTEMA EXTERNO -->
+        <div id="tab-apikeys" style="display: none;">
+          <div class="stat-card" style="flex-direction: column; align-items: flex-start; width: 100%;">
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; margin-bottom: 15px;">
+              <div>
+                <h2 style="font-size: 1.2rem;">🔌 API Keys para Integrar tu Sistema (Laravel, CRM, etc.)</h2>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Usa estas llaves para enviar mensajes desde tu sistema de contabilidad o recibir eventos.</p>
+              </div>
+              <button class="btn btn-accent" onclick="generateApiKey()">➕ Generar Nueva API Key</button>
+            </div>
+
+            <div class="table-container" style="width: 100%;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre / Sistema</th>
+                    <th>Prefijo Key</th>
+                    <th>Último Uso</th>
+                    <th>Estado</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="apikeys-table-body">
+                  <!-- Carga dinámicamente -->
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    function showTab(tabName) {
+      ['general', 'wa', 'ai', 'widget', 'apikeys'].forEach(t => {
+        document.getElementById(`tab-${t}`).style.display = t === tabName ? 'block' : 'none';
+        const btn = document.getElementById(`tab-btn-${t}`);
+        if (t === tabName) {
+          btn.className = 'btn btn-accent';
+        } else {
+          btn.className = 'btn btn-secondary';
+        }
+      });
+
+      if (tabName === 'apikeys') loadApiKeys();
+      if (tabName === 'widget') generateWidgetSnippet();
+    }
+
+    async function loadSettings() {
+      try {
+        const data = await apiFetch('/settings');
+        const settings = data.settings;
+
+        for (const [key, val] of Object.entries(settings)) {
+          const el = document.getElementById(`setting-${key}`);
+          if (el) el.value = val;
+        }
+      } catch (err) {
+        console.error('Error cargando settings:', err);
+      }
+    }
+
+    async function saveSettings() {
+      const inputs = document.querySelectorAll('[id^="setting-"]');
+      const payload = {};
+
+      inputs.forEach(input => {
+        const key = input.id.replace('setting-', '');
+        payload[key] = input.value;
+      });
+
+      try {
+        await apiFetch('/settings', {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        alert('✅ Configuraciones guardadas correctamente');
+      } catch (err) {
+        alert('Error guardando configuraciones: ' + err.message);
+      }
+    }
+
+    function generateWidgetSnippet() {
+      const origin = window.location.origin;
+      const snippet = `<script src="${origin}/widget/chatbot-widget.js"\n        data-server="${origin}"\n        data-title="Atención al Cliente"\n        data-color="#10b981">\n<\/script>`;
+      document.getElementById('widget-code-box').textContent = snippet;
+    }
+
+    function copyWidgetCode() {
+      const text = document.getElementById('widget-code-box').textContent;
+      navigator.clipboard.writeText(text);
+      alert('📋 Código copiado al portapapeles');
+    }
+
+    async function loadApiKeys() {
+      try {
+        const data = await apiFetch('/api-keys');
+        const tbody = document.getElementById('apikeys-table-body');
+        tbody.innerHTML = '';
+
+        if (data.keys.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">No hay API Keys generadas</td></tr>';
+          return;
+        }
+
+        data.keys.forEach(k => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong>${k.name}</strong></td>
+            <td><code>${k.key_prefix}...</code></td>
+            <td>${k.last_used_at ? new Date(k.last_used_at).toLocaleString() : 'Nunca'}</td>
+            <td>${k.is_active ? '🟢 Activa' : '🔴 Revocada'}</td>
+            <td>
+              ${k.is_active ? `<button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="revokeApiKey(${k.id})">Revocar</button>` : ''}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Error cargando API keys:', err);
+      }
+    }
+
+    async function generateApiKey() {
+      const name = prompt('Ingresa un nombre para la API Key (ej: Sistema de Contabilidad Laravel):');
+      if (!name) return;
+
+      try {
+        const data = await apiFetch('/api-keys', {
+          method: 'POST',
+          body: JSON.stringify({ name })
+        });
+        alert(`¡API Key Generada Exitosamente!\n\nGuarda esta clave en un lugar seguro (SOLO SE MUESTRA UNA VEZ):\n\n${data.key.rawKey}`);
+        loadApiKeys();
+      } catch (err) {
+        alert('Error generando API Key: ' + err.message);
+      }
+    }
+
+    async function revokeApiKey(id) {
+      if (!confirm('¿Seguro que deseas revocar esta API Key? Los sistemas vinculados perderán acceso.')) return;
+      try {
+        await apiFetch(`/api-keys/${id}`, { method: 'DELETE' });
+        loadApiKeys();
+      } catch (err) {
+        alert('Error revocando API key: ' + err.message);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      loadSettings();
+      generateWidgetSnippet();
+    });
+  </script>
+</body>
+</html>

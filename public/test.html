@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Página de Prueba — ChatBot Web Widget</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background-color: #0f172a;
+      color: #f8fafc;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      margin: 0;
+      text-align: center;
+    }
+    .card {
+      background: #1e293b;
+      padding: 40px;
+      border-radius: 16px;
+      border: 1px solid #334155;
+      max-width: 500px;
+      box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5);
+    }
+    h1 { color: #10b981; margin-bottom: 10px; }
+    p { color: #94a3b8; line-height: 1.6; }
+    .highlight {
+      background: #334155;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: #a7f3d0;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🌐 Demo de Chat Web</h1>
+    <p>Esta es una página de prueba. Haz clic en la <strong>burbuja verde de chat 💬</strong> en la esquina inferior derecha para chatear con el bot o con un agente.</p>
+    <p>Prueba preguntarle: <br><span class="highlight">"¿Cuáles son sus horarios?"</span> o <span class="highlight">"¿Dónde están ubicados?"</span></p>
+  </div>
+
+  <!-- Widget Embebible -->
+  <script src="/widget/chatbot-widget.js"
+          data-server="http://localhost:3000"
+          data-title="Atención en Línea"
+          data-color="#10b981">
+  </script>
+</body>
+</html>

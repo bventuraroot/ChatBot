@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar Sesión — ChatBot Hub</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+    }
+    .login-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+    }
+    .login-brand {
+      text-align: center;
+      margin-bottom: 30px;
+    }
+    .login-brand .icon {
+      font-size: 2.5rem;
+      margin-bottom: 10px;
+    }
+    .error-msg {
+      background-color: rgba(239, 68, 68, 0.15);
+      border: 1px solid var(--danger);
+      color: #fca5a5;
+      padding: 10px 15px;
+      border-radius: var(--radius-md);
+      font-size: 0.85rem;
+      margin-bottom: 20px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="login-card">
+    <div class="login-brand">
+      <div class="icon">💬</div>
+      <h2>ChatBot Hub</h2>
+      <p style="color: var(--text-muted); font-size: 0.9rem;">Acceso al Panel de Control</p>
+    </div>
+
+    <div id="error-box" class="error-msg"></div>
+
+    <!-- Selector de método de login -->
+    <div class="login-tabs" style="display:flex; margin-bottom:20px; border: 1px solid var(--border-color); border-radius: var(--radius-md); overflow:hidden;">
+      <button id="tab-password" class="login-tab active" onclick="switchTab('password')" style="flex:1; padding:10px; border:none; background:var(--accent); color:white; cursor:pointer; font-size:0.85rem;">Contraseña</button>
+      <button id="tab-qr" class="login-tab" onclick="switchTab('qr')" style="flex:1; padding:10px; border:none; background:transparent; color:var(--text-muted); cursor:pointer; font-size:0.85rem;">Código QR</button>
+    </div>
+
+    <div id="login-form-password">
+      <form id="login-form">
+        <div class="form-group">
+          <label class="form-label">Correo Electrónico</label>
+          <input type="email" id="email" class="form-control" placeholder="admin@chatbot.local" required value="admin@chatbot.local">
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Contraseña</label>
+          <input type="password" id="password" class="form-control" placeholder="••••••••" required value="admin123456">
+        </div>
+
+        <button type="submit" class="btn btn-accent" style="width: 100%; justify-content: center; padding: 14px;">
+          Iniciar Sesión
+        </button>
+      </form>
+    </div>
+
+    <div id="login-form-qr" style="display:none; text-align:center;">
+      <p style="color: var(--text-muted); margin-bottom: 16px; font-size: 0.85rem;">
+        Escanea el código QR con tu teléfono donde ya tengas sesión iniciada
+      </p>
+      <div id="qr-container" style="display: inline-block; padding: 16px; background: white; border-radius: var(--radius-md); margin-bottom: 16px;">
+        <div id="qr-placeholder" style="color: var(--text-muted);">
+          <span style="font-size: 2rem;">📱</span>
+          <p>Cargando código QR...</p>
+        </div>
+        <img id="qr-image" src="" alt="QR Code" style="display:none; max-width:220px;">
+      </div>
+      <p id="qr-status" style="font-size: 0.85rem; color: var(--text-muted);">Esperando escaneo...</p>
+      <button class="btn btn-outline" onclick="refreshQr()" style="margin-top: 8px; font-size: 0.8rem; padding: 6px 16px;">
+        🔄 Regenerar QR
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let pollInterval = null;
+    let currentQrToken = null;
+
+    function stopQrPolling() {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    }
+
+    function switchTab(mode) {
+      const tabPw = document.getElementById('tab-password');
+      const tabQr = document.getElementById('tab-qr');
+      const formPw = document.getElementById('login-form-password');
+      const formQr = document.getElementById('login-form-qr');
+      const errorBox = document.getElementById('error-box');
+      errorBox.style.display = 'none';
+
+      if (mode === 'password') {
+        tabPw.style.background = 'var(--accent)';
+        tabPw.style.color = 'white';
+        tabQr.style.background = 'transparent';
+        tabQr.style.color = 'var(--text-muted)';
+        formPw.style.display = 'block';
+        formQr.style.display = 'none';
+        stopQrPolling();
+      } else {
+        tabQr.style.background = 'var(--accent)';
+        tabQr.style.color = 'white';
+        tabPw.style.background = 'transparent';
+        tabPw.style.color = 'var(--text-muted)';
+        formPw.style.display = 'none';
+        formQr.style.display = 'block';
+        refreshQr();
+      }
+    }
+
+    async function refreshQr() {
+      stopQrPolling();
+      const qrImg = document.getElementById('qr-image');
+      const qrPlaceholder = document.getElementById('qr-placeholder');
+      const qrStatus = document.getElementById('qr-status');
+
+      qrImg.style.display = 'none';
+      qrPlaceholder.style.display = 'block';
+      qrStatus.textContent = 'Cargando código QR...';
+
+      try {
+        const resp = await fetch('/admin/api/qr/generate', { method: 'POST' });
+        const data = await resp.json();
+        currentQrToken = data.token;
+
+        qrImg.src = `/admin/api/qr/image/${data.token}`;
+        qrImg.onload = () => {
+          qrImg.style.display = 'block';
+          qrPlaceholder.style.display = 'none';
+          qrStatus.textContent = 'Esperando escaneo...';
+          startQrPolling();
+        };
+        qrImg.onerror = () => {
+          qrStatus.textContent = 'Error al generar el código QR';
+        };
+      } catch (err) {
+        qrStatus.textContent = 'Error de conexión';
+      }
+    }
+
+    function startQrPolling() {
+      stopQrPolling();
+      pollInterval = setInterval(async () => {
+        if (!currentQrToken) return;
+        try {
+          const resp = await fetch(`/admin/api/qr/status/${currentQrToken}`);
+          const data = await resp.json();
+          const qrStatus = document.getElementById('qr-status');
+
+          if (data.status === 'scanned') {
+            qrStatus.textContent = 'QR escaneado — Esperando confirmación...';
+            qrStatus.style.color = 'var(--accent)';
+          } else if (data.status === 'approved') {
+            qrStatus.textContent = 'Login aprobado. Redirigiendo...';
+            qrStatus.style.color = 'var(--success)';
+            stopQrPolling();
+            if (data.token) {
+              localStorage.setItem('cb_token', data.token);
+              if (data.user) localStorage.setItem('cb_user', JSON.stringify(data.user));
+            }
+            setTimeout(() => window.location.href = '/admin/index.html', 800);
+          } else if (data.status === 'expired') {
+            qrStatus.textContent = 'Código QR expirado. Por favor recarga uno nuevo.';
+            qrStatus.style.color = 'var(--danger)';
+            stopQrPolling();
+          } else if (data.status === 'rejected') {
+            qrStatus.textContent = 'Login rechazado. Intenta de nuevo.';
+            qrStatus.style.color = 'var(--danger)';
+            stopQrPolling();
+          }
+        } catch (err) {
+          // polling error silent
+        }
+      }, 2000);
+    }
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const errorBox = document.getElementById('error-box');
+
+      errorBox.style.display = 'none';
+
+      try {
+        const response = await fetch('/admin/api/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Error al iniciar sesión');
+        }
+
+        localStorage.setItem('cb_token', data.token);
+        localStorage.setItem('cb_user', JSON.stringify(data.user));
+        window.location.href = '/admin/index.html';
+      } catch (err) {
+        errorBox.textContent = err.message;
+        errorBox.style.display = 'block';
+      }
+    });
+
+    window.addEventListener('beforeunload', stopQrPolling);
+  </script>
+</body>
+</html>

@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Base de Conocimiento — ChatBot Hub</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">💬</div>
+        <div class="brand-name">ChatBot Hub</div>
+      </div>
+
+      <ul class="nav-menu">
+        <li><a href="index.html" class="nav-link">📊 Dashboard</a></li>
+        <li><a href="inbox.html" class="nav-link">💬 Bandeja de Entrada</a></li>
+        <li><a href="knowledge.html" class="nav-link active">📚 Base de Conocimiento</a></li>
+        <li><a href="settings.html" class="nav-link">⚙️ Configuración</a></li>
+      </ul>
+
+      <div class="user-profile">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Admin</div>
+          <div class="user-role" id="user-role">Administrador</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Cerrar Sesión">🚪</button>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content">
+      <div class="header">
+        <div class="header-title">
+          <h1>Base de Conocimiento y FAQ</h1>
+          <p>Gestiona las preguntas frecuentes que el chatbot responderá automáticamente</p>
+        </div>
+        <button class="btn btn-primary" onclick="openAddModal()">➕ Nueva Pregunta Frecuente</button>
+      </div>
+
+      <div class="content-body">
+        <div class="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Categoría</th>
+                <th>Pregunta</th>
+                <th>Respuesta</th>
+                <th>Palabras Clave</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="knowledge-table-body">
+              <!-- Carga dinámicamente -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Crear/Editar FAQ -->
+  <div id="faq-modal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.7); z-index: 999; align-items: center; justify-content: center;">
+    <div class="stat-card" style="flex-direction: column; width: 100%; max-width: 550px; background: var(--bg-card); border-radius: var(--radius-lg); padding: 30px;">
+      <h2 id="modal-title" style="margin-bottom: 20px; font-size: 1.3rem;">Agregar Pregunta Frecuente</h2>
+
+      <input type="hidden" id="faq-id">
+
+      <div class="form-group" style="width: 100%;">
+        <label class="form-label">Categoría</label>
+        <input type="text" id="faq-category" class="form-control" placeholder="Ej: Horarios, Precios, Ubicación" value="General">
+      </div>
+
+      <div class="form-group" style="width: 100%;">
+        <label class="form-label">Pregunta</label>
+        <input type="text" id="faq-question" class="form-control" placeholder="Ej: ¿Cuáles son sus horarios de atención?" required>
+      </div>
+
+      <div class="form-group" style="width: 100%;">
+        <label class="form-label">Respuesta Automática</label>
+        <textarea id="faq-answer" class="form-control" rows="4" placeholder="Escribe la respuesta que dará el bot..." required></textarea>
+      </div>
+
+      <div class="form-group" style="width: 100%;">
+        <label class="form-label">Palabras Clave (separadas por coma)</label>
+        <input type="text" id="faq-keywords" class="form-control" placeholder="Ej: horario, abren, horas, atencion">
+      </div>
+
+      <div style="display: flex; gap: 10px; width: 100%; justify-content: flex-end; margin-top: 10px;">
+        <button class="btn btn-secondary" onclick="closeModal()">Cancelar</button>
+        <button class="btn btn-accent" onclick="saveFaq()">Guardar FAQ</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    async function loadKnowledgeItems() {
+      try {
+        const data = await apiFetch('/knowledge');
+        const tbody = document.getElementById('knowledge-table-body');
+        tbody.innerHTML = '';
+
+        if (data.items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No hay preguntas frecuentes registradas</td></tr>';
+          return;
+        }
+
+        data.items.forEach(item => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><span class="badge badge-webchat">${escapeHtml(item.category)}</span></td>
+            <td><strong>${escapeHtml(item.question)}</strong></td>
+            <td style="max-width: 300px;">${escapeHtml(item.answer)}</td>
+            <td><small style="color: var(--text-muted);">${escapeHtml(item.keywords || 'N/A')}</small></td>
+            <td>${item.is_active ? '🟢 Activo' : '🔴 Inactivo'}</td>
+            <td>
+              <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="editFaq(${item.id})">✏️ Editar</button>
+              <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deleteFaq(${item.id})">🗑️</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch (err) {
+        console.error('Error cargando FAQs:', err);
+      }
+    }
+
+    function openAddModal() {
+      document.getElementById('faq-id').value = '';
+      document.getElementById('faq-category').value = 'General';
+      document.getElementById('faq-question').value = '';
+      document.getElementById('faq-answer').value = '';
+      document.getElementById('faq-keywords').value = '';
+      document.getElementById('modal-title').textContent = 'Agregar Pregunta Frecuente';
+      document.getElementById('faq-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('faq-modal').style.display = 'none';
+    }
+
+    async function editFaq(id) {
+      const data = await apiFetch('/knowledge');
+      const item = data.items.find(i => i.id === id);
+      if (!item) return;
+
+      document.getElementById('faq-id').value = item.id;
+      document.getElementById('faq-category').value = item.category;
+      document.getElementById('faq-question').value = item.question;
+      document.getElementById('faq-answer').value = item.answer;
+      document.getElementById('faq-keywords').value = item.keywords || '';
+      document.getElementById('modal-title').textContent = 'Editar Pregunta Frecuente';
+      document.getElementById('faq-modal').style.display = 'flex';
+    }
+
+    async function saveFaq() {
+      const id = document.getElementById('faq-id').value;
+      const category = document.getElementById('faq-category').value;
+      const question = document.getElementById('faq-question').value;
+      const answer = document.getElementById('faq-answer').value;
+      const keywords = document.getElementById('faq-keywords').value;
+
+      if (!question || !answer) {
+        alert('Pregunta y respuesta son requeridas');
+        return;
+      }
+
+      try {
+        if (id) {
+          await apiFetch(`/knowledge/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ category, question, answer, keywords })
+          });
+        } else {
+          await apiFetch('/knowledge', {
+            method: 'POST',
+            body: JSON.stringify({ category, question, answer, keywords })
+          });
+        }
+        closeModal();
+        loadKnowledgeItems();
+      } catch (err) {
+        alert('Error guardando FAQ: ' + err.message);
+      }
+    }
+
+    async function deleteFaq(id) {
+      if (!confirm('¿Seguro que deseas eliminar esta pregunta frecuente?')) return;
+      try {
+        await apiFetch(`/knowledge/${id}`, { method: 'DELETE' });
+        loadKnowledgeItems();
+      } catch (err) {
+        alert('Error eliminando FAQ: ' + err.message);
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', loadKnowledgeItems);
+  </script>
+</body>
+</html>

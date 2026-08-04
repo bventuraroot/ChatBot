@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Verificar Login QR — ChatBot Hub</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);
+    }
+    .qr-card {
+      background-color: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 40px;
+      width: 100%;
+      max-width: 420px;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+      text-align: center;
+    }
+    .qr-icon {
+      font-size: 3rem;
+      margin-bottom: 15px;
+    }
+    .btn-group {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+    }
+    .btn-group .btn { flex: 1; justify-content: center; }
+  </style>
+</head>
+<body>
+  <div class="qr-card" id="state-loading">
+    <div class="qr-icon">⏳</div>
+    <h3>Verificando sesión...</h3>
+    <p style="color: var(--text-muted);">Cargando...</p>
+  </div>
+
+  <div class="qr-card" id="state-auth" style="display:none;">
+    <div class="qr-icon">📱</div>
+    <h3>Iniciar Sesión por QR</h3>
+    <p style="color: var(--text-muted); margin-bottom: 20px;">
+      ¿Deseas iniciar sesión con esta cuenta en el otro dispositivo?
+    </p>
+    <div id="user-info" style="margin-bottom: 16px; padding: 12px; background: var(--bg-sidebar); border-radius: var(--radius-md);">
+      <strong id="user-name" style="color: var(--text-primary);"></strong>
+      <br><span id="user-email" style="color: var(--text-muted); font-size: 0.85rem;"></span>
+    </div>
+    <div class="btn-group">
+      <button class="btn btn-danger" onclick="rejectQr()">Rechazar</button>
+      <button class="btn btn-accent" onclick="approveQr()">Aprobar</button>
+    </div>
+  </div>
+
+  <div class="qr-card" id="state-success" style="display:none;">
+    <div class="qr-icon">✅</div>
+    <h3>Login Aprobado</h3>
+    <p style="color: var(--text-muted);">Ya puedes usar ChatBot Hub en tu otro dispositivo.</p>
+  </div>
+
+  <div class="qr-card" id="state-expired" style="display:none;">
+    <div class="qr-icon">⌛</div>
+    <h3>Sesión Expirada</h3>
+    <p style="color: var(--text-muted);">El código QR ha expirado. Genera uno nuevo.</p>
+  </div>
+
+  <div class="qr-card" id="state-unauth" style="display:none;">
+    <div class="qr-icon">🔒</div>
+    <h3>No has iniciado sesión</h3>
+    <p style="color: var(--text-muted);">Debes iniciar sesión en el panel de administración primero.</p>
+    <a href="login.html" class="btn btn-accent" style="margin-top:16px;">Ir al Login</a>
+  </div>
+
+  <script>
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    const tokenFromStorage = localStorage.getItem('cb_token');
+
+    function showState(id) {
+      ['state-loading','state-auth','state-success','state-expired','state-unauth'].forEach(s => {
+        document.getElementById(s).style.display = 'none';
+      });
+      document.getElementById(id).style.display = 'block';
+    }
+
+    async function approveQr() {
+      try {
+        const resp = await fetch('/admin/api/qr/approve', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokenFromStorage}`
+          },
+          body: JSON.stringify({ token })
+        });
+        if (resp.ok) {
+          showState('success');
+        } else {
+          const data = await resp.json();
+          alert(data.error || 'Error al aprobar');
+        }
+      } catch (err) {
+        alert('Error de conexión');
+      }
+    }
+
+    async function rejectQr() {
+      try {
+        await fetch('/admin/api/qr/reject', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${tokenFromStorage}`
+          },
+          body: JSON.stringify({ token })
+        });
+        window.close();
+      } catch (err) {
+        window.close();
+      }
+    }
+
+    async function init() {
+      if (!token) {
+        showState('expired');
+        return;
+      }
+
+      if (!tokenFromStorage) {
+        showState('unauth');
+        return;
+      }
+
+      try {
+        const resp = await fetch(`/admin/api/qr/info/${token}`);
+        if (!resp.ok) {
+          showState('expired');
+          return;
+        }
+
+        const userStr = localStorage.getItem('cb_user');
+        if (userStr) {
+          const user = JSON.parse(userStr);
+          document.getElementById('user-name').textContent = user.name || 'Usuario';
+          document.getElementById('user-email').textContent = user.email || '';
+        }
+
+        showState('auth');
+      } catch (err) {
+        showState('expired');
+      }
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,91 @@
+# ============================================
+# ChatBot Hub — Docker Compose
+# ============================================
+# Levanta todos los servicios necesarios:
+#   1. chatbot-hub  (Tu app Node.js principal)
+#   2. evolution-api (WhatsApp no oficial por QR — OPCIONAL)
+#
+# USO:
+#   docker compose up -d                                  → Solo ChatBot Hub
+#   docker compose --profile whatsapp-qr up -d            → ChatBot + Evolution API
+#   docker compose logs -f                                → Ver logs en tiempo real
+#   docker compose down                                   → Detener todo
+#
+# NOTA: evolution-api usa un PROFILE, por lo que solo se levanta
+#       con el flag --profile whatsapp-qr. Los volúmenes y la red
+#       se comparten entre ambos servicios.
+# ============================================
+
+services:
+  # ============================================
+  # 1. ChatBot Hub — Aplicación principal
+  # ============================================
+  chatbot-hub:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: chatbot-hub
+    restart: unless-stopped
+    ports:
+      - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      # La BD SQLite se guarda en /app/data (volumen dedicado SOLO a datos,
+      # separado del código para que las actualizaciones de la imagen no queden ocultas)
+      - DB_PATH=/app/data/chatbot.sqlite
+      # Apuntar a Evolution API dentro de la red Docker (solo aplica si la levantas)
+      - EVOLUTION_API_URL=http://evolution-api:8080
+    volumes:
+      # Persistir la base de datos SQLite fuera del contenedor
+      - chatbot_data:/app/data
+      # Persistir archivos subidos (imágenes, documentos, etc.)
+      - chatbot_uploads:/app/uploads
+    networks:
+      - chatbot-network
+
+  # ============================================
+  # 2. Evolution API — WhatsApp No Oficial (QR)
+  #    Solo se levanta con:  docker compose --profile whatsapp-qr up -d
+  # ============================================
+  evolution-api:
+    image: atendai/evolution-api:v2.2.3
+    container_name: evolution-api
+    restart: unless-stopped
+    profiles:
+      - whatsapp-qr
+    ports:
+      - "8080:8080"
+    environment:
+      - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-chatbot_evolution_key_2026}
+      # Webhook apuntando al contenedor de ChatBot Hub
+      - WEBHOOK_GLOBAL_URL=http://chatbot-hub:3000/webhook/whatsapp-evolution
+      - WEBHOOK_GLOBAL_ENABLED=true
+      - WEBHOOK_EVENTS=MESSAGES_UPSERT
+    volumes:
+      - evolution_instances:/evolution/instances
+      - evolution_store:/evolution/store
+    networks:
+      - chatbot-network
+
+# ============================================
+# Volúmenes persistentes
+# ============================================
+volumes:
+  chatbot_data:
+    driver: local
+  chatbot_uploads:
+    driver: local
+  evolution_instances:
+    driver: local
+  evolution_store:
+    driver: local
+
+# ============================================
+# Red interna
+# ============================================
+networks:
+  chatbot-network:
+    driver: bridge

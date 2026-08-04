@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bandeja de Entrada — ChatBot Hub</title>
+  <link rel="stylesheet" href="css/admin.css">
+  <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="brand">
+        <div class="brand-icon">💬</div>
+        <div class="brand-name">ChatBot Hub</div>
+      </div>
+
+      <ul class="nav-menu">
+        <li><a href="index.html" class="nav-link">📊 Dashboard</a></li>
+        <li><a href="inbox.html" class="nav-link active">💬 Bandeja de Entrada</a></li>
+        <li><a href="knowledge.html" class="nav-link">📚 Base de Conocimiento</a></li>
+        <li><a href="settings.html" class="nav-link">⚙️ Configuración</a></li>
+      </ul>
+
+      <div class="user-profile">
+        <div class="user-avatar" id="user-avatar">A</div>
+        <div class="user-info">
+          <div class="user-name" id="user-name">Admin</div>
+          <div class="user-role" id="user-role">Administrador</div>
+        </div>
+        <button class="logout-btn" onclick="logout()" title="Cerrar Sesión">🚪</button>
+      </div>
+    </div>
+
+    <!-- Inbox UI -->
+    <div class="main-content" style="overflow: hidden;">
+      <div class="inbox-container">
+        <!-- Sidebar de Conversaciones -->
+        <div class="conversations-sidebar">
+          <div class="conversations-header">
+            <h2 style="font-size: 1.1rem;">Conversaciones</h2>
+          </div>
+          <div class="conversations-list" id="conversations-list">
+            <!-- Conversaciones renderizadas dinámicamente -->
+          </div>
+        </div>
+
+        <!-- Área de Chat -->
+        <div class="chat-area">
+          <div class="chat-header" id="chat-header" style="display: none;">
+            <div>
+              <h3 id="chat-contact-name">Selecciona un chat</h3>
+              <p id="chat-contact-info" style="font-size: 0.8rem; color: var(--text-muted);"></p>
+            </div>
+            <div style="display: flex; gap: 10px;">
+              <button id="btn-toggle-status" class="btn btn-secondary" onclick="toggleConversationStatus()">Cerrar Chat</button>
+            </div>
+          </div>
+
+          <div class="chat-messages" id="chat-messages">
+            <div style="margin: auto; color: var(--text-muted); text-align: center;">
+              💬 Selecciona una conversación para empezar a responder
+            </div>
+          </div>
+
+          <div class="chat-input-area" id="chat-input-area" style="display: none;">
+            <input type="text" id="msg-input" class="form-control" placeholder="Escribe un mensaje..." onkeypress="handleKeyPress(event)">
+            <button class="btn btn-accent" onclick="sendMessage()">Enviar ➔</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script>
+    let activeConversationId = null;
+    let socket = null;
+
+    function initSocket() {
+      socket = io();
+
+      socket.on('connect', () => {
+        console.log('⚡ Conectado al WebSocket del servidor');
+      });
+
+      socket.on('new_message', (data) => {
+        if (activeConversationId === data.conversation_id) {
+          appendMessage(data.message);
+          scrollChatToBottom();
+        }
+        loadConversations();
+      });
+
+      socket.on('conversation_updated', () => {
+        loadConversations();
+      });
+    }
+
+    async function loadConversations() {
+      try {
+        const data = await apiFetch('/conversations');
+        const listEl = document.getElementById('conversations-list');
+        listEl.innerHTML = '';
+
+        if (data.conversations.length === 0) {
+          listEl.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-muted);">No hay conversaciones</div>';
+          return;
+        }
+
+        data.conversations.forEach(conv => {
+          const item = document.createElement('div');
+          item.className = `conv-item ${activeConversationId === conv.id ? 'active' : ''}`;
+          item.onclick = () => selectConversation(conv.id);
+
+          const timeStr = conv.last_message_at ? new Date(conv.last_message_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '';
+          const channelName = conv.channel === 'whatsapp_cloud' ? 'WA Cloud' : (conv.channel === 'whatsapp_evolution' ? 'WA QR' : 'Web Chat');
+
+          item.innerHTML = `
+            <div class="user-avatar" style="width: 42px; height: 42px; background: #334155;">${(conv.contact_name || 'C')[0].toUpperCase()}</div>
+            <div style="flex: 1; overflow: hidden;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-weight: 600; font-size: 0.9rem;">${conv.contact_name || 'Cliente'}</span>
+                <span style="font-size: 0.7rem; color: var(--text-muted);">${timeStr}</span>
+              </div>
+              <div style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
+                ${conv.last_message_text || 'Sin mensajes'}
+              </div>
+              <div style="margin-top: 6px; display: flex; gap: 5px;">
+                <span class="badge badge-${conv.channel}">${channelName}</span>
+                ${conv.unread_count > 0 ? `<span class="badge badge-unread">${conv.unread_count} nuevos</span>` : ''}
+              </div>
+            </div>
+          `;
+          listEl.appendChild(item);
+        });
+      } catch (err) {
+        console.error('Error cargando conversaciones:', err);
+      }
+    }
+
+    async function selectConversation(id) {
+      activeConversationId = id;
+      loadConversations();
+
+      try {
+        const data = await apiFetch(`/conversations/${id}/messages`);
+        const conv = data.conversation;
+        const messages = data.messages;
+
+        document.getElementById('chat-header').style.display = 'flex';
+        document.getElementById('chat-input-area').style.display = 'flex';
+        document.getElementById('chat-contact-name').textContent = conv.contact_name || 'Cliente';
+        document.getElementById('btn-toggle-status').textContent = conv.status === 'closed' ? 'Reabrir Chat' : 'Cerrar Chat';
+
+        // Construir línea de info del contacto con sistema, teléfono y email
+        const channelLabels = {
+          whatsapp_cloud: '📱 WhatsApp (Meta)',
+          whatsapp_evolution: '🟢 WhatsApp (QR)',
+          webchat: '🌐 Web Chat'
+        };
+        const channelLabel = channelLabels[conv.channel] || conv.channel;
+        let infoLine = channelLabel;
+        if (conv.contact_phone) infoLine += ` | Tel: ${conv.contact_phone}`;
+        if (conv.contact_email) infoLine += ` | ${conv.contact_email}`;
+        // Las notes del contacto contienen "Origen: Sistema de Contabilidad | Rol: Admin"
+        if (conv.contact_notes) infoLine += ` | ${conv.contact_notes}`;
+
+        document.getElementById('chat-contact-info').textContent = infoLine;
+
+        const messagesEl = document.getElementById('chat-messages');
+        messagesEl.innerHTML = '';
+
+        messages.forEach(msg => {
+          appendMessage(msg);
+        });
+
+        scrollChatToBottom();
+      } catch (err) {
+        console.error('Error cargando chat:', err);
+      }
+    }
+
+    function appendMessage(msg) {
+      const messagesEl = document.getElementById('chat-messages');
+      const bubble = document.createElement('div');
+      
+      let typeClass = 'msg-customer';
+      let senderLabel = 'Cliente';
+      if (msg.sender_type === 'agent') {
+        typeClass = 'msg-agent';
+        senderLabel = msg.agent_name || 'Agente';
+      } else if (msg.sender_type === 'bot') {
+        typeClass = 'msg-bot';
+        senderLabel = ' Bot IA';
+      }
+
+      bubble.className = `msg-bubble ${typeClass}`;
+      const timeStr = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      bubble.innerHTML = `
+        <div style="font-size: 0.7rem; font-weight: bold; margin-bottom: 4px; opacity: 0.8;">${senderLabel}</div>
+        <div>${escapeHtml(msg.text || '')}</div>
+        <span class="msg-time">${timeStr}</span>
+      `;
+
+      messagesEl.appendChild(bubble);
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('msg-input');
+      const text = input.value.trim();
+      if (!text || !activeConversationId) return;
+
+      input.value = '';
+      try {
+        await apiFetch(`/conversations/${activeConversationId}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({ text })
+        });
+      } catch (err) {
+        alert('Error al enviar mensaje: ' + err.message);
+      }
+    }
+
+    function handleKeyPress(e) {
+      if (e.key === 'Enter') {
+        sendMessage();
+      }
+    }
+
+    async function toggleConversationStatus() {
+      if (!activeConversationId) return;
+      const btn = document.getElementById('btn-toggle-status');
+      const isClosed = btn.textContent.includes('Reabrir');
+      const newStatus = isClosed ? 'open' : 'closed';
+
+      try {
+        await apiFetch(`/conversations/${activeConversationId}/status`, {
+          method: 'PUT',
+          body: JSON.stringify({ status: newStatus })
+        });
+        selectConversation(activeConversationId);
+      } catch (err) {
+        alert('Error cambiando estado: ' + err.message);
+      }
+    }
+
+    function scrollChatToBottom() {
+      const messagesEl = document.getElementById('chat-messages');
+      messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      initSocket();
+      loadConversations();
+    });
+  </script>
+</body>
+</html>
