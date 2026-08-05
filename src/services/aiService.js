@@ -93,10 +93,10 @@ class AIService {
     if (!apiKey) return null;
 
     // Modelo configurable; por defecto el gratuito de DeepSeek V4 Flash.
-    // Otros gratuitos: mimo-v2.5-free, nemotron-3-ultra-free, big-pickle, etc.
+    // El ID se usa SIN prefijo (ej: 'deepseek-v4-flash-free'), tal como lo
+    // acepta la API de Zen.
     const model = (await Setting.get('OPENCODE_MODEL', 'deepseek-v4-flash-free')).toLowerCase();
-    // Se usa el ID con prefijo 'opencode/' como en la config de OpenCode
-    const modelId = model.startsWith('opencode/') ? model : `opencode/${model}`;
+    const modelId = model.startsWith('opencode/') ? model.replace('opencode/', '') : model;
 
     try {
       const messages = [{ role: 'system', content: systemPrompt }];
