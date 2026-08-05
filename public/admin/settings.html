@@ -194,6 +194,7 @@
                 <option value="none">Ninguno (Solo respuestas predefinidas FAQ)</option>
                 <option value="openai">OpenAI (ChatGPT GPT-3.5/GPT-4)</option>
                 <option value="gemini">Google Gemini AI</option>
+                <option value="opencode">OpenCode Zen (modelos gratis)</option>
               </select>
             </div>
 
@@ -205,6 +206,29 @@
             <div class="form-group" style="width: 100%;">
               <label class="form-label">Google Gemini API Key</label>
               <input type="password" id="setting-GEMINI_API_KEY" class="form-control" placeholder="AIzaSy...">
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">OpenCode Zen API Key (modelos gratis)</label>
+              <input type="password" id="setting-OPENCODE_API_KEY" class="form-control" placeholder="Tu API key de https://opencode.ai/zen">
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                Obtén tu key en <code>opencode.ai/zen</code>. Usa tu suscripción OpenCode Go/Zen.
+              </p>
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Modelo OpenCode Zen</label>
+              <select id="setting-OPENCODE_MODEL" class="form-control">
+                <option value="deepseek-v4-flash-free">DeepSeek V4 Flash Free (gratis)</option>
+                <option value="mimo-v2.5-free">MiMo V2.5 Free (gratis)</option>
+                <option value="nemotron-3-ultra-free">Nemotron 3 Ultra Free (gratis)</option>
+                <option value="big-pickle">Big Pickle (gratis)</option>
+                <option value="deepseek-v4-flash">DeepSeek V4 Flash (de pago, $0.14)</option>
+                <option value="deepseek-v4-pro">DeepSeek V4 Pro (de pago)</option>
+              </select>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                Los modelos <strong>Free</strong> no cuestan nada con tu suscripción.
+              </p>
             </div>
 
             <div class="form-group" style="width: 100%;">

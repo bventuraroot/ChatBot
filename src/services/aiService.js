@@ -30,6 +30,8 @@ class AIService {
       return await AIService.callOpenAI(fullSystemPrompt, userMessage, conversationHistory);
     } else if (provider === 'gemini') {
       return await AIService.callGemini(fullSystemPrompt, userMessage, conversationHistory);
+    } else if (provider === 'opencode') {
+      return await AIService.callOpenCode(fullSystemPrompt, userMessage, conversationHistory);
     }
 
     // Sin IA configurada -> Fallback
@@ -80,6 +82,59 @@ class AIService {
       return response.data.choices[0]?.message?.content?.trim() || null;
     } catch (error) {
       console.error('❌ Error en OpenAI API:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  // OpenCode Zen/Go: gateway OpenAI-compatible con modelos gratuitos
+  // https://opencode.ai/zen  →  endpoint: https://opencode.ai/zen/v1/chat/completions
+  static async callOpenCode(systemPrompt, userMessage, history = []) {
+    const apiKey = await Setting.get('OPENCODE_API_KEY');
+    if (!apiKey) return null;
+
+    // Modelo configurable; por defecto el gratuito de DeepSeek V4 Flash.
+    // Otros gratuitos: mimo-v2.5-free, nemotron-3-ultra-free, big-pickle, etc.
+    const model = (await Setting.get('OPENCODE_MODEL', 'deepseek-v4-flash-free')).toLowerCase();
+    // Se usa el ID con prefijo 'opencode/' como en la config de OpenCode
+    const modelId = model.startsWith('opencode/') ? model : `opencode/${model}`;
+
+    try {
+      const messages = [{ role: 'system', content: systemPrompt }];
+
+      const lastCustomerMsg = [...history].reverse().find(m => m.sender_type === 'customer');
+      const historyForPrompt = (lastCustomerMsg && lastCustomerMsg.text === userMessage)
+        ? history.slice(0, -1).slice(-6)
+        : history.slice(-6);
+
+      historyForPrompt.forEach((msg) => {
+        messages.push({
+          role: msg.sender_type === 'customer' ? 'user' : 'assistant',
+          content: msg.text || ''
+        });
+      });
+
+      messages.push({ role: 'user', content: userMessage });
+
+      const response = await axios.post(
+        'https://opencode.ai/zen/v1/chat/completions',
+        {
+          model: modelId,
+          messages,
+          temperature: 0.7,
+          max_tokens: 350
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          timeout: 30000
+        }
+      );
+
+      return response.data.choices[0]?.message?.content?.trim() || null;
+    } catch (error) {
+      console.error('❌ Error en OpenCode Zen API:', error.response?.data || error.message);
       return null;
     }
   }
