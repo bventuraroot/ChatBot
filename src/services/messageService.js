@@ -159,11 +159,36 @@ class MessageService {
       : await Setting.get('BUSINESS_HOURS_DAYS', '1,2,3,4,5')
     ).split(',').map(Number);
 
-    const now = new Date();
-    const currentDay = now.getDay() === 0 ? 7 : now.getDay();
+    // Zona horaria configurable (por defecto la del servidor).
+    // En Docker el servidor suele estar en UTC, por eso es importante
+    // configurar TIMEZONE (ej: 'America/Mexico_City', 'Europe/Madrid').
+    const timezone = await Setting.get('TIMEZONE', 'UTC');
+
+    let currentDay;
+    let currentTimeStr;
+    try {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone: timezone,
+        weekday: 'short',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false
+      }).formatToParts(new Date());
+
+      const part = (type) => parts.find(p => p.type === type)?.value;
+      const dayNames = { Sun: 7, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+      currentDay = dayNames[part('weekday')];
+      currentTimeStr = `${part('hour')}:${part('minute')}`;
+    } catch (err) {
+      // Zona horaria inválida: usar la hora del servidor
+      console.error(`❌ Zona horaria inválida "${timezone}":`, err.message);
+      const now = new Date();
+      currentDay = now.getDay() === 0 ? 7 : now.getDay();
+      currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
+    }
+
     if (!hoursDays.includes(currentDay)) return false;
 
-    const currentTimeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
     return currentTimeStr >= hoursStart && currentTimeStr <= hoursEnd;
   }
 }
