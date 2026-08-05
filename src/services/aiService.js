@@ -34,20 +34,28 @@ class AIService {
       externalText = `\n\nDatos actuales del sistema del cliente obtenidos en tiempo real (usa estos datos para responder con precisión):\n${externalContext}\n`;
     }
 
-    const fullSystemPrompt = `${systemPrompt}${contextText}${externalText}\n\nResponde de manera concisa, clara y profesional en español. Si el usuario pide hablar con un agente o persona real, responde amablemente que lo conectarás con un agente humano.`;
+    const fullSystemPrompt = `${systemPrompt}${contextText}${externalText}\n\nResponde de manera concisa, clara y profesional en español. IMPORTANTE: Si el usuario pide hablar con un agente humano, un asesor, una persona real, o si NO puedes responder su pregunta con seguridad, comienza tu respuesta EXACTAMENTE con el marcador [HUMANO] y luego el mensaje de despedida que le indicará que un agente lo atenderá. Si puedes responder normal, NO uses el marcador.`;
 
-    if (provider === 'openai') {
-      return await AIService.callOpenAI(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
-    } else if (provider === 'gemini') {
-      return await AIService.callGemini(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
-    } else if (provider === 'opencode') {
-      return await AIService.callOpenCode(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
-    } else if (provider === 'custom') {
-      return await AIService.callCustom(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
-    }
+    const aiText = await (async () => {
+      if (provider === 'openai') {
+        return await AIService.callOpenAI(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
+      } else if (provider === 'gemini') {
+        return await AIService.callGemini(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
+      } else if (provider === 'opencode') {
+        return await AIService.callOpenCode(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
+      } else if (provider === 'custom') {
+        return await AIService.callCustom(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
+      }
+      return null;
+    })();
 
-    // Sin IA configurada -> Fallback
-    return null;
+    // Devolver objeto con la respuesta y si requiere escalar a un humano
+    if (!aiText) return null;
+    const wantsHuman = /^\s*\[HUMANO\]/i.test(aiText);
+    return {
+      answer: aiText.replace(/^\s*\[HUMANO\]\s*/i, '').trim(),
+      wantsHuman
+    };
   }
 
   // Método genérico para cualquier API compatible con OpenAI (OpenRouter,

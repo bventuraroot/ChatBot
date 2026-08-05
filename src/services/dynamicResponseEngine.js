@@ -48,14 +48,15 @@ class DynamicResponseEngine {
     if (process.env.DEBUG_LOGS === 'true') {
       console.log(`🤖 Buscando respuesta IA para: "${text}"`);
     }
-    const aiAnswer = await AIService.generateResponse(text, history, clientId, externalContext);
-    if (aiAnswer) {
+    const aiResult = await AIService.generateResponse(text, history, clientId, externalContext);
+    if (aiResult && aiResult.answer) {
       if (process.env.DEBUG_LOGS === 'true') {
-        console.log(`🤖 IA respondió (source=ai): "${aiAnswer.slice(0, 80)}"`);
+        console.log(`🤖 IA respondió (source=ai): "${aiResult.answer.slice(0, 80)}" wantsHuman=${!!aiResult.wantsHuman}`);
       }
       return {
         source: 'ai',
-        answer: DynamicResponseEngine.renderTemplate(aiAnswer, contact)
+        answer: DynamicResponseEngine.renderTemplate(aiResult.answer, contact),
+        wantsHuman: !!aiResult.wantsHuman
       };
     }
     if (process.env.DEBUG_LOGS === 'true') {

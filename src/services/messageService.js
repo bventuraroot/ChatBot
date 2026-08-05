@@ -93,6 +93,12 @@ class MessageService {
 
     if (response) {
       await MessageService.sendBotResponse(conversation, contact, response.answer);
+
+      // Si la IA decide que el cliente necesita un humano, avisar al admin
+      // por WhatsApp y asignar la conversación para que la responda.
+      if (response.wantsHuman) {
+        await MessageService.escalateToHuman(conversation, contact, text);
+      }
     } else {
       // 9. Sin respuesta → mensaje de bienvenida (solo primera interacción)
       if (history.length <= 1) {
@@ -125,6 +131,48 @@ class MessageService {
     NotificationService.notifyConversationUpdated(await Conversation.findById(conversation.id));
 
     return botMsg;
+  }
+
+  // Escala la conversación a un humano: avisa al admin por WhatsApp y
+  // asigna la conversación al primer usuario admin/agente para que la tome.
+  static async escalateToHuman(conversation, contact, customerText) {
+    try {
+      const Setting = require('./models/Setting');
+
+      // 1. Buscar el número de WhatsApp del admin para enviarle el aviso.
+      //    Se configura en Settings: ALERT_PHONE (con código de país, ej 5215512345678)
+      const alertPhone = await Setting.get('ALERT_PHONE');
+      if (alertPhone) {
+        const channelName = conversation.channel === 'whatsapp_evolution' ? 'WhatsApp' : (conversation.channel === 'whatsapp_cloud' ? 'WhatsApp' : 'Chat Web');
+        const contactName = contact.name || 'Visitante';
+        const alertText =
+          `🔔 *Nuevo mensaje necesita atención humana*\n\n` +
+          `👤 *${contactName}*\n` +
+          `💬 "${customerText || ''}"\n` +
+          `🌐 Canal: ${channelName}\n\n` +
+          `Responde desde el panel admin o aquí mismo.`;
+
+        await WhatsAppEvolutionChannel.sendMessage(alertPhone, alertText);
+      }
+
+      // 2. Asignar la conversación a un agente (el primer admin disponible)
+      const User = require('./models/User');
+      const users = await User.getAll();
+      const agent = users.find(u => u.role === 'admin') || users[0];
+      if (agent && !conversation.assigned_to) {
+        await Conversation.assignAgent(conversation.id, agent.id);
+        conversation = await Conversation.findById(conversation.id);
+      }
+
+      // 3. Notificar al panel admin
+      NotificationService.notifyConversationUpdated(conversation);
+
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log(`🔔 Conversación ${conversation.id} escalada a humano (${agent ? agent.name : 'sin agente'}). Aviso WhatsApp enviado: ${!!alertPhone}`);
+      }
+    } catch (err) {
+      console.error('❌ Error escalando conversación a humano:', err);
+    }
   }
 
   static async sendAgentMessage(conversationId, agentId, text, mediaUrl = null) {
