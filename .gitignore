@@ -4,3 +4,4 @@ database/*.sqlite
 .DS_Store
 uploads/
 *.log
+.opencode
