@@ -88,7 +88,7 @@
         console.log('⚡ Conectado al WebSocket del servidor');
       });
 
-      socket.on('new_message', (data) => {
+      socket.on('admin_new_message', (data) => {
         if (activeConversationId === data.conversation_id) {
           appendMessage(data.message);
           scrollChatToBottom();

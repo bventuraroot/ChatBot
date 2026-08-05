@@ -79,6 +79,7 @@
       timeout: 15000
     });
     let isClosed = false;
+    let myConversationId = null;
 
     socket.on('connect', () => {
       socket.emit('join_webchat', {
@@ -95,6 +96,10 @@
     socket.on('conversation_history', (data) => {
       const box = document.getElementById('cb-messages-box');
       box.innerHTML = '';
+
+      // Guardar el id de la conversación de ESTE visitante para filtrar
+      // los mensajes nuevos y no mezclar conversaciones de otros clientes.
+      myConversationId = data.conversation_id || null;
 
       if (!data.messages || data.messages.length === 0) {
         // Primera vez: mensaje de bienvenida
@@ -115,12 +120,21 @@
       }
     });
 
-    // Nuevo mensaje del bot/agente llegando
-    socket.on('new_message', (data) => {
-      if (data.message.sender_type !== 'customer') {
-        appendMsg(data.message.text, data.message.sender_type);
-        openWidget();
+    // El servidor confirma cuál es la conversación de ESTE visitante
+    socket.on('my_conversation', (data) => {
+      if (data && data.conversation_id) {
+        myConversationId = data.conversation_id;
       }
+    });
+
+    // Nuevo mensaje del bot/agente llegando
+    // IMPORTANTE: solo se muestra si pertenece a la conversación de ESTE
+    // visitante. Evita mezclar chats entre distintos usuarios.
+    socket.on('new_message', (data) => {
+      if (!data || !data.message || data.message.sender_type === 'customer') return;
+      if (myConversationId && data.conversation_id !== myConversationId) return;
+      appendMsg(data.message.text, data.message.sender_type);
+      openWidget();
     });
 
     // El agente cerró la conversación

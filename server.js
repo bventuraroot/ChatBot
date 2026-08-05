@@ -197,6 +197,17 @@ io.on('connection', (socket) => {
         metadata: { system, role },
         clientId: resolvedClientId
       });
+
+      // Comunicar al widget cuál es SU conversación (para que filtre los
+      // mensajes y no mezcle chats de otros visitantes).
+      const Contact = require('./src/models/Contact');
+      const Conversation = require('./src/models/Conversation');
+      const contact = await Contact.findByPhone(visitorId);
+      if (contact) {
+        const conversation = await Conversation.findOrCreateForContact(contact.id, 'webchat', resolvedClientId);
+        socket.emit('my_conversation', { conversation_id: conversation.id });
+      }
+
       if (process.env.DEBUG_LOGS === 'true') {
         console.log(`✅ Mensaje webchat procesado: "${text}" → ${name}`);
       }
