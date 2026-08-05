@@ -97,7 +97,6 @@ class AIService {
     // acepta la API de Zen.
     const model = (await Setting.get('OPENCODE_MODEL', 'deepseek-v4-flash-free')).toLowerCase();
     const modelId = model.startsWith('opencode/') ? model.replace('opencode/', '') : model;
-
     try {
       const messages = [{ role: 'system', content: systemPrompt }];
 
@@ -133,9 +132,10 @@ class AIService {
       );
 
       const msg = response.data.choices[0]?.message || {};
-      // Algunos modelos (ej: mimo-v2.5-free) devuelven la respuesta en el
-      // campo `reasoning` en lugar de `content`. Intentamos ambos.
-      const aiText = (msg.content || msg.reasoning || msg.reasoning_content || '').trim();
+      // Solo usamos el campo `content`. Los campos `reasoning` /
+      // `reasoning_content` son el pensamiento interno del modelo, NO la
+      // respuesta al cliente (modelos como mimo-v2.5-free los devuelven).
+      const aiText = (msg.content || '').trim();
       return aiText || null;
     } catch (error) {
       console.error('❌ Error en OpenCode Zen API:', error.response?.data || error.message);
