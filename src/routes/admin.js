@@ -338,11 +338,18 @@ router.get('/knowledge', async (req, res) => {
 
 router.post('/knowledge', async (req, res) => {
   try {
-    const { category, question, answer, keywords } = req.body;
+    const { category, question, answer, keywords, match_type, priority } = req.body;
     if (!question || !answer) {
       return res.status(400).json({ error: 'Pregunta y respuesta son requeridas' });
     }
-    const item = await KnowledgeItem.create({ category, question, answer, keywords });
+    const item = await KnowledgeItem.create({
+      category,
+      question,
+      answer,
+      keywords,
+      match_type: match_type || 'keyword',
+      priority: parseInt(priority, 10) || 0
+    });
     res.json({ item });
   } catch (err) {
     res.status(500).json({ error: err.message });

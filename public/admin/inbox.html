@@ -35,6 +35,7 @@
 
     <!-- Inbox UI -->
     <div class="main-content" style="overflow: hidden;">
+      <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 10px;"></div>
       <div class="inbox-container">
         <!-- Sidebar de Conversaciones -->
         <div class="conversations-sidebar">
@@ -96,6 +97,14 @@
           scrollChatToBottom();
         }
         loadConversations();
+      });
+
+      // Alerta en vivo: un cliente pide atención humana
+      socket.on('admin_alert', (data) => {
+        if (data && data.type === 'human_needed') {
+          showAlert(data);
+          playAlertSound();
+        }
       });
 
       socket.on('conversation_updated', () => {
@@ -186,6 +195,43 @@
       } catch (err) {
         console.error('Error cargando chat:', err);
       }
+    }
+
+    // Muestra una notificación visual cuando un cliente pide un agente
+    function showAlert(data) {
+      const container = document.getElementById('alert-container');
+      const el = document.createElement('div');
+      el.style.cssText = 'background:#1e293b;border:1px solid #f59e0b;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 16px;max-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.5);animation:slideIn 0.3s ease;';
+      const time = new Date(data.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      el.innerHTML = `
+        <div style="font-weight:bold;color:#f59e0b;margin-bottom:4px;">🔔 Solicitud de atención humana</div>
+        <div style="font-size:0.9rem;">👤 <strong>${escapeHtml(data.contact_name || 'Visitante')}</strong> · ${escapeHtml(data.channel || '')}</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin:4px 0;">"${escapeHtml(data.message || '')}"</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
+          <span style="font-size:0.75rem;color:var(--text-muted);">${time}</span>
+          <button class="btn btn-accent" style="padding:4px 10px;font-size:0.8rem;" onclick="selectConversation(${data.conversation_id}); this.closest('[data-alert]').remove();">Ir al chat →</button>
+        </div>
+      `;
+      el.dataset.alert = '1';
+      container.appendChild(el);
+      setTimeout(() => { el.remove(); }, 30000);
+    }
+
+    // Sonido de alerta (se genera con Web Audio, sin archivo externo)
+    function playAlertSound() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.frequency.value = 880;
+        gain.gain.value = 0.2;
+        osc.start();
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        osc.frequency.setValueAtTime(660, ctx.currentTime + 0.2);
+        osc.stop(ctx.currentTime + 0.4);
+      } catch (e) { /* sonido no disponible */ }
     }
 
     // Muestra botones "Tomar/Devolver" y quién tiene la conversación asignada

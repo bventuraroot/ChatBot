@@ -43,6 +43,12 @@
       </div>
 
       <div class="content-body">
+        <div style="display: flex; gap: 10px; margin-bottom: 15px; align-items: center;">
+          <input type="text" id="faq-search" class="form-control" placeholder="🔍 Buscar por pregunta, respuesta o categoría..." style="max-width: 400px;" onkeyup="loadKnowledgeItems()">
+          <select id="faq-cat-filter" class="form-control" style="max-width: 200px;" onchange="loadKnowledgeItems()">
+            <option value="">Todas las categorías</option>
+          </select>
+        </div>
         <div class="table-container">
           <table>
             <thead>
@@ -51,6 +57,8 @@
                 <th>Pregunta</th>
                 <th>Respuesta</th>
                 <th>Palabras Clave</th>
+                <th>Coincidencia</th>
+                <th>Prioridad</th>
                 <th>Estado</th>
                 <th>Acciones</th>
               </tr>
@@ -89,6 +97,33 @@
       <div class="form-group" style="width: 100%;">
         <label class="form-label">Palabras Clave (separadas por coma)</label>
         <input type="text" id="faq-keywords" class="form-control" placeholder="Ej: horario, abren, horas, atencion">
+        <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+          Para tipo <strong>keyword</strong>: el bot responde si encuentra alguna. Para <strong>any</strong>: igual pero más flexible. Para <strong>regex</strong>: escribe el patrón aquí.
+        </p>
+      </div>
+
+      <div style="display: flex; gap: 15px; width: 100%;">
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Tipo de Coincidencia</label>
+          <select id="faq-match-type" class="form-control">
+            <option value="keyword">Keyword (palabra clave)</option>
+            <option value="any">Cualquier keyword (OR)</option>
+            <option value="exact">Exacto (texto idéntico)</option>
+            <option value="regex">Expresión regular</option>
+          </select>
+        </div>
+        <div class="form-group" style="flex: 1;">
+          <label class="form-label">Prioridad (mayor = se revisa primero)</label>
+          <input type="number" id="faq-priority" class="form-control" value="0" min="0">
+        </div>
+      </div>
+
+      <div class="form-group" style="width: 100%;">
+        <label class="form-label">Estado</label>
+        <select id="faq-is-active" class="form-control">
+          <option value="1">🟢 Activo</option>
+          <option value="0">🔴 Inactivo</option>
+        </select>
       </div>
 
       <div style="display: flex; gap: 10px; width: 100%; justify-content: flex-end; margin-top: 10px;">
@@ -104,23 +139,55 @@
       try {
         const data = await apiFetch('/knowledge');
         const tbody = document.getElementById('knowledge-table-body');
+        const search = (document.getElementById('faq-search').value || '').toLowerCase();
+        const catFilter = document.getElementById('faq-cat-filter').value;
+
+        // Llenar el filtro de categorías (solo la primera vez o siempre)
+        const catSelect = document.getElementById('faq-cat-filter');
+        const cats = [...new Set(data.items.map(i => i.category || 'General'))].sort();
+        if (catSelect.options.length <= 1) {
+          cats.forEach(c => {
+            const opt = document.createElement('option');
+            opt.value = c;
+            opt.textContent = c;
+            catSelect.appendChild(opt);
+          });
+        }
+
+        let items = data.items;
+        if (search) {
+          items = items.filter(i =>
+            (i.question || '').toLowerCase().includes(search) ||
+            (i.answer || '').toLowerCase().includes(search) ||
+            (i.category || '').toLowerCase().includes(search)
+          );
+        }
+        if (catFilter) {
+          items = items.filter(i => (i.category || 'General') === catFilter);
+        }
+
         tbody.innerHTML = '';
 
-        if (data.items.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--text-muted);">No hay preguntas frecuentes registradas</td></tr>';
+        if (items.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">No hay preguntas frecuentes que coincidan</td></tr>';
           return;
         }
 
-        data.items.forEach(item => {
+        const matchLabels = { keyword: 'Keyword', any: 'Cualquiera (OR)', exact: 'Exacto', regex: 'Regex' };
+
+        items.forEach(item => {
           const tr = document.createElement('tr');
           tr.innerHTML = `
             <td><span class="badge badge-webchat">${escapeHtml(item.category)}</span></td>
             <td><strong>${escapeHtml(item.question)}</strong></td>
-            <td style="max-width: 300px;">${escapeHtml(item.answer)}</td>
+            <td style="max-width: 250px;">${escapeHtml(item.answer)}</td>
             <td><small style="color: var(--text-muted);">${escapeHtml(item.keywords || 'N/A')}</small></td>
+            <td><small>${matchLabels[item.match_type] || item.match_type}</small></td>
+            <td><span class="badge badge-unread">${item.priority}</span></td>
             <td>${item.is_active ? '🟢 Activo' : '🔴 Inactivo'}</td>
             <td>
               <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="editFaq(${item.id})">✏️ Editar</button>
+              <button class="btn btn-secondary" style="padding: 4px 8px; font-size: 0.8rem;" onclick="toggleFaq(${item.id}, ${item.is_active ? 0 : 1})">${item.is_active ? '⏸️' : '▶️'}</button>
               <button class="btn btn-danger" style="padding: 4px 8px; font-size: 0.8rem;" onclick="deleteFaq(${item.id})">🗑️</button>
             </td>
           `;
@@ -137,6 +204,9 @@
       document.getElementById('faq-question').value = '';
       document.getElementById('faq-answer').value = '';
       document.getElementById('faq-keywords').value = '';
+      document.getElementById('faq-match-type').value = 'keyword';
+      document.getElementById('faq-priority').value = '0';
+      document.getElementById('faq-is-active').value = '1';
       document.getElementById('modal-title').textContent = 'Agregar Pregunta Frecuente';
       document.getElementById('faq-modal').style.display = 'flex';
     }
@@ -155,6 +225,9 @@
       document.getElementById('faq-question').value = item.question;
       document.getElementById('faq-answer').value = item.answer;
       document.getElementById('faq-keywords').value = item.keywords || '';
+      document.getElementById('faq-match-type').value = item.match_type || 'keyword';
+      document.getElementById('faq-priority').value = item.priority || 0;
+      document.getElementById('faq-is-active').value = item.is_active ? '1' : '0';
       document.getElementById('modal-title').textContent = 'Editar Pregunta Frecuente';
       document.getElementById('faq-modal').style.display = 'flex';
     }
@@ -165,28 +238,45 @@
       const question = document.getElementById('faq-question').value;
       const answer = document.getElementById('faq-answer').value;
       const keywords = document.getElementById('faq-keywords').value;
+      const match_type = document.getElementById('faq-match-type').value;
+      const priority = document.getElementById('faq-priority').value;
+      const is_active = parseInt(document.getElementById('faq-is-active').value, 10);
 
       if (!question || !answer) {
         alert('Pregunta y respuesta son requeridas');
         return;
       }
 
+      const payload = { category, question, answer, keywords, match_type, priority, is_active };
+
       try {
         if (id) {
           await apiFetch(`/knowledge/${id}`, {
             method: 'PUT',
-            body: JSON.stringify({ category, question, answer, keywords })
+            body: JSON.stringify(payload)
           });
         } else {
           await apiFetch('/knowledge', {
             method: 'POST',
-            body: JSON.stringify({ category, question, answer, keywords })
+            body: JSON.stringify(payload)
           });
         }
         closeModal();
         loadKnowledgeItems();
       } catch (err) {
         alert('Error guardando FAQ: ' + err.message);
+      }
+    }
+
+    async function toggleFaq(id, isActive) {
+      try {
+        await apiFetch(`/knowledge/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({ is_active: isActive })
+        });
+        loadKnowledgeItems();
+      } catch (err) {
+        alert('Error cambiando estado: ' + err.message);
       }
     }
 

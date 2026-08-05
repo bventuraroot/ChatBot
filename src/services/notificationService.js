@@ -33,6 +33,13 @@ class NotificationService {
     NotificationService.io.emit('conversation_updated', conversation);
   }
 
+  // Notificación de alerta en vivo para el panel admin (sonido/visual)
+  // cuando una conversación necesita atención humana.
+  static notifyAlert(message) {
+    if (!NotificationService.io) return;
+    NotificationService.io.emit('admin_alert', message);
+  }
+
   static notifyNewConversation(conversation) {
     if (!NotificationService.io) return;
     NotificationService.io.emit('new_conversation', conversation);

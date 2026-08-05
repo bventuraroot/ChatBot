@@ -167,18 +167,31 @@ class MessageService {
     return botMsg;
   }
 
-  // Escala la conversación a un humano: avisa al admin por WhatsApp y
-  // asigna la conversación al primer usuario admin/agente para que la tome.
+  // Escala la conversación a un humano: avisa al admin por WhatsApp y en el
+  // panel, y asigna la conversación al primer usuario admin/agente.
   static async escalateToHuman(conversation, contact, customerText) {
     try {
       const Setting = require('./models/Setting');
 
-      // 1. Buscar el número de WhatsApp del admin para enviarle el aviso.
-      //    Se configura en Settings: ALERT_PHONE (con código de país, ej 5215512345678)
+      const channelName = conversation.channel === 'whatsapp_evolution'
+        ? 'WhatsApp (QR)'
+        : (conversation.channel === 'whatsapp_cloud' ? 'WhatsApp (Meta)' : 'Chat Web');
+      const contactName = contact.name || 'Visitante';
+
+      // 1. Aviso en el panel admin en tiempo real (siempre)
+      NotificationService.notifyAlert({
+        type: 'human_needed',
+        conversation_id: conversation.id,
+        contact_name: contactName,
+        message: customerText || 'Solicitó atención humana',
+        channel: channelName,
+        time: new Date().toISOString()
+      });
+
+      // 2. Aviso por WhatsApp (si ALERT_PHONE está configurado)
       const alertPhone = await Setting.get('ALERT_PHONE');
+      let whatsappAlertSent = false;
       if (alertPhone) {
-        const channelName = conversation.channel === 'whatsapp_evolution' ? 'WhatsApp' : (conversation.channel === 'whatsapp_cloud' ? 'WhatsApp' : 'Chat Web');
-        const contactName = contact.name || 'Visitante';
         const alertText =
           `🔔 *Nuevo mensaje necesita atención humana*\n\n` +
           `👤 *${contactName}*\n` +
@@ -186,10 +199,19 @@ class MessageService {
           `🌐 Canal: ${channelName}\n\n` +
           `Responde desde el panel admin o aquí mismo.`;
 
-        await WhatsAppEvolutionChannel.sendMessage(alertPhone, alertText);
+        // Usar el canal de WhatsApp que esté configurado
+        if (conversation.channel === 'whatsapp_cloud') {
+          const result = await WhatsAppCloudChannel.sendMessage(alertPhone, alertText);
+          whatsappAlertSent = result && result.success;
+        } else {
+          const result = await WhatsAppEvolutionChannel.sendMessage(alertPhone, alertText);
+          whatsappAlertSent = result && result.success;
+        }
+      } else if (process.env.DEBUG_LOGS === 'true') {
+        console.log('⚠️ ALERT_PHONE no configurado: no se envió aviso por WhatsApp (solo panel).');
       }
 
-      // 2. Asignar la conversación a un agente (el primer admin disponible)
+      // 3. Asignar la conversación a un agente (el primer admin disponible)
       const User = require('./models/User');
       const users = await User.getAll();
       const agent = users.find(u => u.role === 'admin') || users[0];
@@ -198,11 +220,11 @@ class MessageService {
         conversation = await Conversation.findById(conversation.id);
       }
 
-      // 3. Notificar al panel admin
+      // 4. Notificar al panel admin
       NotificationService.notifyConversationUpdated(conversation);
 
       if (process.env.DEBUG_LOGS === 'true') {
-        console.log(`🔔 Conversación ${conversation.id} escalada a humano (${agent ? agent.name : 'sin agente'}). Aviso WhatsApp enviado: ${!!alertPhone}`);
+        console.log(`🔔 Conversación ${conversation.id} escalada a humano (${agent ? agent.name : 'sin agente'}). Aviso WhatsApp: ${whatsappAlertSent} (ALERT_PHONE=${alertPhone ? 'configurado' : 'FALTA'})`);
       }
     } catch (err) {
       console.error('❌ Error escalando conversación a humano:', err);
