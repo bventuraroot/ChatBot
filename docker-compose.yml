@@ -51,7 +51,7 @@ services:
   #    Solo se levanta con:  docker compose --profile whatsapp-qr up -d
   # ============================================
   evolution-api:
-    image: atendai/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.2.3
     container_name: evolution-api
     restart: unless-stopped
     profiles:
