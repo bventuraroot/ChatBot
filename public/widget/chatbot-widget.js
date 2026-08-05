@@ -56,7 +56,10 @@
             <div class="cb-header-title">💬 ${escapeHtml(widgetTitle)}</div>
             ${subtitleHtml}
           </div>
-          <button class="cb-header-close" id="cb-close-btn" title="Minimizar">✕</button>
+          <div style="display: flex; gap: 6px;">
+            <button class="cb-header-close" id="cb-new-session-btn" title="Iniciar nueva conversación">↺</button>
+            <button class="cb-header-close" id="cb-close-btn" title="Minimizar">✕</button>
+          </div>
         </div>
         <div class="cb-messages" id="cb-messages-box"></div>
         <div id="cb-status-bar" class="cb-status-bar" style="display:none"></div>
@@ -152,6 +155,7 @@
     // ── UI Events ──────────────────────────────────────────────────
     const toggleBtn = document.getElementById('cb-widget-button');
     const closeBtn  = document.getElementById('cb-close-btn');
+    const newSessionBtn = document.getElementById('cb-new-session-btn');
 
     toggleBtn.addEventListener('click', () => {
       document.getElementById('cb-widget-box').classList.toggle('cb-open');
@@ -159,6 +163,13 @@
     });
     closeBtn.addEventListener('click', () => {
       document.getElementById('cb-widget-box').classList.remove('cb-open');
+    });
+
+    // Iniciar una NUEVA conversación: limpia la sesión local, genera un
+    // nuevo visitor_id y recarga el widget como un visitante nuevo.
+    newSessionBtn.addEventListener('click', () => {
+      if (!confirm('¿Iniciar una nueva conversación? Se borrará el historial de esta sesión.')) return;
+      startNewSession();
     });
 
     document.getElementById('cb-send-btn').addEventListener('click', sendMessage);
@@ -193,6 +204,38 @@
   }
 
   // ── Helpers ──────────────────────────────────────────────────────
+
+  // Cierra la sesión local y arranca una conversación nueva como visitante nuevo.
+  function startNewSession() {
+    // Borrar datos de sesión local del widget
+    localStorage.removeItem('cb_visitor_id');
+    localStorage.removeItem('cb_user');
+
+    // Nuevo visitor_id anónimo
+    visitorId = 'web_' + Math.random().toString(36).substring(2, 11);
+    localStorage.setItem('cb_visitor_id', visitorId);
+
+    // Reiniciar estado del widget
+    myConversationId = null;
+    isClosed = false;
+    markOpen();
+
+    // Limpiar mensajes mostrados y mostrar bienvenida
+    const box = document.getElementById('cb-messages-box');
+    box.innerHTML = '';
+    const namePart = userName ? ' <strong>' + escapeHtml(userName) + '</strong>' : '';
+    appendMsg(`¡Hola${namePart}! 👋 ¿En qué podemos ayudarte?`, 'bot');
+
+    // Re-registrar el visitante en el servidor con el nuevo id
+    socket.emit('join_webchat', {
+      visitor_id: visitorId,
+      name:   userName,
+      email:  userEmail,
+      role:   userRole,
+      system: systemName,
+      client_id: clientId
+    });
+  }
 
   function appendMsg(text, senderType, timestamp) {
     const box = document.getElementById('cb-messages-box');
