@@ -58,13 +58,30 @@ app.use((req, res, next) => {
   next();
 });
 
-// Capturar raw body para verificación de firmas de webhooks (Meta)
+// Capturar raw body para verificación de firmas de webhooks (Meta).
+// El límite se sube a 10MB porque los webhooks de Evolution API pueden
+// incluir media en base64 (imágenes, audio, video) que superan los 100KB
+// por defecto de Express (causa PayloadTooLargeError).
 app.use(express.json({
+  limit: '10mb',
   verify: (req, res, buf) => {
     req.rawBody = buf.toString('utf8');
   }
 }));
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Manejo de errores de parsing del body (JSON inválido, payload demasiado grande)
+app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.too.large' || err.status === 413)) {
+    console.error('❌ Payload demasiado grande rechazado:', err.message);
+    return res.status(413).json({ error: 'Payload demasiado grande' });
+  }
+  if (err && (err.type === 'entity.parse.failed' || err.status === 400)) {
+    console.error('❌ JSON inválido en la petición:', err.message);
+    return res.status(400).json({ error: 'JSON inválido en la petición' });
+  }
+  next(err);
+});
 
 // Servir archivos estáticos del panel admin y widget con headers CORS explícitos
 app.use(express.static(path.join(__dirname, 'public'), {
