@@ -53,7 +53,7 @@ services:
   #    Requiere PostgreSQL + Redis (v2.x ya no soporta SQLite)
   # ============================================
   evolution-api:
-    image: evoapicloud/evolution-api:v2.2.3
+    image: evoapicloud/evolution-api:v2.3.7
     container_name: evolution-api
     restart: unless-stopped
     profiles:
@@ -77,10 +77,12 @@ services:
       - CACHE_REDIS_ENABLED=true
       - CACHE_REDIS_URI=redis://evolution-redis:6379
       - CACHE_REDIS_SAVE_INSTANCES=true
-      # Webhook apuntando al contenedor de ChatBot Hub
+      # Webhook apuntando al contenedor de ChatBot Hub (formato v2.3.x)
       - WEBHOOK_GLOBAL_URL=http://chatbot-hub:3000/webhook/whatsapp-evolution
       - WEBHOOK_GLOBAL_ENABLED=true
-      - WEBHOOK_EVENTS=MESSAGES_UPSERT
+      - WEBHOOK_GLOBAL_WEBHOOK_BY_EVENTS=false
+      - WEBHOOK_EVENTS_MESSAGES_UPSERT=true
+      - WEBHOOK_EVENTS_CONNECTION_UPDATE=false
     volumes:
       - evolution_instances:/evolution/instances
       - evolution_store:/evolution/store
