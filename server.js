@@ -99,18 +99,31 @@ io.on('connection', (socket) => {
       name: data.name,
       email: data.email,
       role: data.role,
-      system: data.system
+      system: data.system,
+      client_id: data.client_id
     };
     console.log(`👤 Visitante registrado: ${data.name || data.visitor_id} [${data.system || 'web'}]`);
 
     // Enviar historial de mensajes al widget para que el usuario vea su conversación anterior
     try {
+      const Contact = require('./src/models/Contact');
+      const Conversation = require('./src/models/Conversation');
+      const Message = require('./src/models/Message');
+      const Client = require('./src/models/Client');
+
       let contact = null;
       if (data.visitor_id) contact = await Contact.findByPhone(data.visitor_id);
       if (!contact && data.email) contact = await Contact.findByEmail(data.email);
 
+      // Resolver client_id desde el widget
+      let clientId = null;
+      if (data.client_id) {
+        const client = await Client.findByWebchatIdentifier(data.client_id);
+        if (client) clientId = client.id;
+      }
+
       if (contact) {
-        const conversation = await Conversation.findOrCreateForContact(contact.id, 'webchat');
+        const conversation = await Conversation.findOrCreateForContact(contact.id, 'webchat', clientId);
         const messages = await Message.getByConversation(conversation.id, { limit: 100 });
         socket.emit('conversation_history', {
           conversation_id: conversation.id,
@@ -139,6 +152,15 @@ io.on('connection', (socket) => {
         ? `Origen: ${system}${role ? ' | Rol: ' + role : ''}`
         : null;
 
+      // Resolver client_id desde el contexto del socket
+      let resolvedClientId = null;
+      const clientIdFromCtx = data.client_id || ctx.client_id;
+      if (clientIdFromCtx) {
+        const Client = require('./src/models/Client');
+        const client = await Client.findByWebchatIdentifier(clientIdFromCtx);
+        if (client) resolvedClientId = client.id;
+      }
+
       await MessageService.handleIncomingMessage({
         phone: visitorId,
         name: name || 'Visitante Web',
@@ -146,7 +168,8 @@ io.on('connection', (socket) => {
         channel: 'webchat',
         text,
         notes,
-        metadata: { system, role }
+        metadata: { system, role },
+        clientId: resolvedClientId
       });
     } catch (err) {
       console.error('❌ Error procesando mensaje de webchat:', err);

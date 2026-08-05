@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clientes — ChatBot Hub</title>
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body>
+  <div class="sidebar">
+    <div class="sidebar-brand">
+      <span>💬</span> ChatBot Hub
+    </div>
+    <nav class="sidebar-nav">
+      <a href="index.html"><span>📊</span> Dashboard</a>
+      <a href="inbox.html"><span>📥</span> Bandeja</a>
+      <a href="knowledge.html"><span>📚</span> Conocimiento</a>
+      <a href="clients.html" class="active"><span>🏢</span> Clientes</a>
+      <a href="settings.html"><span>⚙️</span> Configuración</a>
+    </nav>
+    <div class="sidebar-user">
+      <div class="user-avatar" id="user-avatar">A</div>
+      <div>
+        <div id="user-name" style="font-weight:600;font-size:0.9rem;"></div>
+        <div id="user-role" style="font-size:0.75rem;color:var(--text-muted);"></div>
+      </div>
+      <button onclick="logout()" class="btn btn-outline" style="margin-left:auto;font-size:0.75rem;padding:4px 10px;">Salir</button>
+    </div>
+  </div>
+
+  <main class="main-content">
+    <div class="page-header">
+      <h1>🏢 Clientes</h1>
+      <p style="color:var(--text-muted);">Gestiona los clientes y sus configuraciones de bot</p>
+      <button class="btn btn-accent" onclick="openModal()">+ Nuevo Cliente</button>
+    </div>
+
+    <div id="clients-list" style="margin-top:20px;"></div>
+
+    <!-- Modal Crear/Editar Cliente -->
+    <div id="client-modal" class="modal" style="display:none;">
+      <div class="modal-content" style="max-width:700px;">
+        <div class="modal-header">
+          <h3 id="modal-title">Nuevo Cliente</h3>
+          <button class="modal-close" onclick="closeModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+          <form id="client-form">
+            <input type="hidden" id="client-id">
+
+            <h4 style="margin-bottom:12px;color:var(--text-primary);">Información General</h4>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group">
+                <label class="form-label">Nombre *</label>
+                <input type="text" id="client-name" class="form-control" required>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Descripción</label>
+                <input type="text" id="client-desc" class="form-control" placeholder="Ej: Tienda online, Restaurante...">
+              </div>
+            </div>
+
+            <h4 style="margin:16px 0 12px;color:var(--text-primary);">Mapeo de Canales</h4>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
+              Identifica qué canal pertenece a este cliente. El bot usará esto para saber quién recibe el mensaje.
+            </p>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div class="form-group">
+                <label class="form-label">WhatsApp Phone Number ID</label>
+                <input type="text" id="client-wa-phone" class="form-control" placeholder="ID de Meta">
+              </div>
+              <div class="form-group">
+                <label class="form-label">WhatsApp Evolution Instance</label>
+                <input type="text" id="client-wa-instance" class="form-control" placeholder="Nombre instancia">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Webchat Client ID</label>
+                <input type="text" id="client-webchat-id" class="form-control" placeholder="data-client-id">
+              </div>
+            </div>
+
+            <h4 style="margin:16px 0 12px;color:var(--text-primary);">API Externa (Opcional)</h4>
+            <p style="font-size:0.8rem;color:var(--text-muted);margin-bottom:12px;">
+              Si el cliente tiene un sistema (contabilidad, inventario, etc.), configura su API aquí.
+              El bot le enviará el mensaje del usuario y usará la respuesta que devuelva.
+            </p>
+            <div style="display:grid;grid-template-columns:2fr 1fr;gap:12px;">
+              <div class="form-group">
+                <label class="form-label">URL de la API</label>
+                <input type="url" id="client-api-url" class="form-control" placeholder="https://api.cliente.com/chatbot">
+              </div>
+              <div class="form-group">
+                <label class="form-label">API Key</label>
+                <input type="text" id="client-api-key" class="form-control" placeholder="Bearer token o API key">
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:8px;">
+              <label class="form-label">Timeout API (ms)</label>
+              <input type="number" id="client-api-timeout" class="form-control" value="5000" style="max-width:200px;">
+            </div>
+
+            <h4 style="margin:16px 0 12px;color:var(--text-primary);">Comportamiento del Bot</h4>
+            <div class="form-group">
+              <label class="form-label">Mensaje de Bienvenida</label>
+              <textarea id="client-welcome" class="form-control" rows="2">¡Hola! ¿En qué puedo ayudarte?</textarea>
+              <small style="color:var(--text-muted);font-size:0.75rem;">Variables: {contact_name}, {date}, {time}, {day}</small>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Mensaje Fuera de Horario</label>
+              <textarea id="client-ooh" class="form-control" rows="2" placeholder="Si se deja vacío, usa el mensaje global"></textarea>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div class="form-group">
+                <label class="form-label">Horario Inicio</label>
+                <input type="time" id="client-hours-start" class="form-control" value="08:00">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Horario Fin</label>
+                <input type="time" id="client-hours-end" class="form-control" value="17:00">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Días (1=Lun, 7=Dom)</label>
+                <input type="text" id="client-hours-days" class="form-control" value="1,2,3,4,5">
+              </div>
+            </div>
+            <div class="form-group" style="margin-top:8px;">
+              <label style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+                <input type="checkbox" id="client-bot-enabled" checked>
+                <span class="form-label" style="margin:0;">Bot habilitado para este cliente</span>
+              </label>
+            </div>
+          </form>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeModal()">Cancelar</button>
+          <button class="btn btn-accent" onclick="saveClient()">Guardar</button>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script src="js/app.js"></script>
+  <script>
+    async function loadClients() {
+      try {
+        const data = await apiFetch('/clients');
+        renderClients(data.clients);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderClients(clients) {
+      const container = document.getElementById('clients-list');
+      if (!clients.length) {
+        container.innerHTML = `
+          <div style="text-align:center;padding:60px;color:var(--text-muted);">
+            <div style="font-size:3rem;margin-bottom:16px;">🏢</div>
+            <h3>No hay clientes configurados</h3>
+            <p>Crea tu primer cliente para empezar a usar el bot multi-tenant.</p>
+          </div>`;
+        return;
+      }
+
+      container.innerHTML = `<div style="display:grid;gap:12px;">${clients.map(c => `
+        <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:var(--radius-md);padding:16px;display:flex;align-items:center;gap:16px;">
+          <div style="width:48px;height:48px;background:var(--accent);border-radius:var(--radius-md);display:flex;align-items:center;justify-content:center;font-size:1.4rem;color:white;flex-shrink:0;">
+            ${c.name[0].toUpperCase()}
+          </div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-weight:600;color:var(--text-primary);">${c.name}</div>
+            <div style="font-size:0.8rem;color:var(--text-muted);margin-top:2px;">
+              ${c.description || 'Sin descripción'}
+            </div>
+            <div style="display:flex;gap:12px;margin-top:6px;font-size:0.75rem;">
+              ${c.whatsapp_phone_id ? `<span style="color:var(--success);">📱 WA Cloud: ${c.whatsapp_phone_id}</span>` : ''}
+              ${c.whatsapp_instance ? `<span style="color:var(--success);">📱 Evolution: ${c.whatsapp_instance}</span>` : ''}
+              ${c.webchat_identifier ? `<span style="color:var(--accent);">🌐 Webchat: ${c.webchat_identifier}</span>` : ''}
+              ${c.external_api_url ? `<span style="color:var(--warning);">🔗 API Externa</span>` : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center;">
+            <span style="font-size:0.75rem;padding:4px 8px;border-radius:4px;${c.is_active ? 'background:rgba(34,197,94,0.15);color:var(--success);' : 'background:rgba(239,68,68,0.15);color:var(--danger);'}">
+              ${c.is_active ? 'Activo' : 'Inactivo'}
+            </span>
+            <button class="btn btn-outline" style="font-size:0.75rem;padding:4px 10px;" onclick="editClient(${c.id})">Editar</button>
+            <button class="btn btn-danger" style="font-size:0.75rem;padding:4px 10px;" onclick="deleteClient(${c.id}, '${c.name}')">Eliminar</button>
+          </div>
+        </div>
+      `).join('')}</div>`;
+    }
+
+    function openModal(client = null) {
+      document.getElementById('client-id').value = client ? client.id : '';
+      document.getElementById('client-name').value = client ? client.name : '';
+      document.getElementById('client-desc').value = client ? (client.description || '') : '';
+      document.getElementById('client-wa-phone').value = client ? (client.whatsapp_phone_id || '') : '';
+      document.getElementById('client-wa-instance').value = client ? (client.whatsapp_instance || '') : '';
+      document.getElementById('client-webchat-id').value = client ? (client.webchat_identifier || '') : '';
+      document.getElementById('client-api-url').value = client ? (client.external_api_url || '') : '';
+      document.getElementById('client-api-key').value = client ? (client.external_api_key || '') : '';
+      document.getElementById('client-api-timeout').value = client ? (client.external_api_timeout || 5000) : 5000;
+      document.getElementById('client-welcome').value = client ? (client.welcome_message || '¡Hola! ¿En qué puedo ayudarte?') : '¡Hola! ¿En qué puedo ayudarte?';
+      document.getElementById('client-ooh').value = client ? (client.out_of_hours_message || '') : '';
+      document.getElementById('client-hours-start').value = client ? (client.business_hours_start || '08:00') : '08:00';
+      document.getElementById('client-hours-end').value = client ? (client.business_hours_end || '17:00') : '17:00';
+      document.getElementById('client-hours-days').value = client ? (client.business_hours_days || '1,2,3,4,5') : '1,2,3,4,5';
+      document.getElementById('client-bot-enabled').checked = client ? client.bot_enabled === 1 : true;
+      document.getElementById('modal-title').textContent = client ? 'Editar Cliente' : 'Nuevo Cliente';
+      document.getElementById('client-modal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('client-modal').style.display = 'none';
+    }
+
+    async function saveClient() {
+      const id = document.getElementById('client-id').value;
+      const payload = {
+        name: document.getElementById('client-name').value,
+        description: document.getElementById('client-desc').value,
+        whatsapp_phone_id: document.getElementById('client-wa-phone').value || null,
+        whatsapp_instance: document.getElementById('client-wa-instance').value || null,
+        webchat_identifier: document.getElementById('client-webchat-id').value || null,
+        external_api_url: document.getElementById('client-api-url').value || null,
+        external_api_key: document.getElementById('client-api-key').value || null,
+        external_api_timeout: parseInt(document.getElementById('client-api-timeout').value) || 5000,
+        welcome_message: document.getElementById('client-welcome').value,
+        out_of_hours_message: document.getElementById('client-ooh').value || null,
+        business_hours_start: document.getElementById('client-hours-start').value,
+        business_hours_end: document.getElementById('client-hours-end').value,
+        business_hours_days: document.getElementById('client-hours-days').value,
+        bot_enabled: document.getElementById('client-bot-enabled').checked ? 1 : 0
+      };
+
+      if (!payload.name) return alert('El nombre es requerido');
+
+      try {
+        if (id) {
+          await apiFetch(`/clients/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await apiFetch('/clients', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        closeModal();
+        loadClients();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function editClient(id) {
+      try {
+        const data = await apiFetch(`/clients/${id}`);
+        openModal(data.client);
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    async function deleteClient(id, name) {
+      if (!confirm(`¿Eliminar el cliente "${name}"? Esto NO elimina sus conversaciones.`)) return;
+      try {
+        await apiFetch(`/clients/${id}`, { method: 'DELETE' });
+        loadClients();
+      } catch (err) {
+        alert('Error: ' + err.message);
+      }
+    }
+
+    loadClients();
+  </script>
+</body>
+</html>

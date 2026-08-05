@@ -1,11 +1,14 @@
 const express = require('express');
 const router = express.Router();
 const { authenticateApiKey } = require('../middleware/auth');
+const rateLimiter = require('../middleware/rateLimiter');
 const MessageService = require('../services/messageService');
 const Contact = require('../models/Contact');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
 
+const apiLimiter = rateLimiter({ windowMs: 60 * 1000, max: 60 });
+router.use(apiLimiter);
 router.use(authenticateApiKey);
 
 // POST /api/v1/messages/send — Enviar un mensaje a un cliente

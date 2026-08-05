@@ -1,32 +1,41 @@
 const Contact = require('../models/Contact');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
-const KnowledgeItem = require('../models/KnowledgeItem');
+const Client = require('../models/Client');
 const Setting = require('../models/Setting');
-const AIService = require('./aiService');
+const DynamicResponseEngine = require('./dynamicResponseEngine');
 const NotificationService = require('./notificationService');
 const WhatsAppCloudChannel = require('../channels/whatsapp-cloud');
 const WhatsAppEvolutionChannel = require('../channels/whatsapp-evolution');
 
 class MessageService {
-  static async handleIncomingMessage({ phone, email, name, channel, text, mediaUrl, mediaType, metadata, notes }) {
-    // 1. Buscar o crear contacto (con notas del sistema de origen)
+  static async handleIncomingMessage({ phone, email, name, channel, text, mediaUrl, mediaType, metadata, notes, clientId, channelData }) {
+    // 1. Determinar el cliente (multi-tenant)
+    let client = null;
+    if (clientId) {
+      client = await Client.findById(clientId);
+    } else if (channelData) {
+      client = await Client.findByChannel(channel, channelData);
+    }
+    const resolvedClientId = client ? client.id : null;
+
+    // 2. Buscar o crear contacto
     const contact = await Contact.findOrCreate({
       phone,
       email,
       name: name || phone || 'Visitante Web',
       channel,
-      notes
+      notes,
+      client_id: resolvedClientId
     });
 
-    // 2. Obtener/reabrir conversación persistente del contacto
-    const conversation = await Conversation.findOrCreateForContact(contact.id, channel);
-    const isReopened = conversation.status === 'open' && conversation.unread_count === 0;
+    // 3. Obtener/reabrir conversación persistente del contacto
+    const conversation = await Conversation.findOrCreateForContact(contact.id, channel, resolvedClientId);
 
     // Incrementar no leídos
     await Conversation.incrementUnread(conversation.id);
 
-    // 3. Guardar el mensaje del cliente
+    // 4. Guardar el mensaje del cliente
     const customerMsg = await Message.create({
       conversation_id: conversation.id,
       sender_type: 'customer',
@@ -40,46 +49,42 @@ class MessageService {
     NotificationService.notifyNewMessage(conversation.id, customerMsg, contact);
     NotificationService.notifyConversationUpdated(await Conversation.findById(conversation.id));
 
-    // 4. Verificar si el bot está habilitado
-    const botEnabled = (await Setting.get('BOT_ENABLED', 'true')) === 'true';
-
-    // Si la conversación ya fue tomada por un humano, no responder automáticamente
+    // 5. Verificar si la conversación fue tomada por un humano
     if (conversation.assigned_to && conversation.assigned_to > 0) {
       return customerMsg;
     }
 
+    // 6. Verificar si el bot está habilitado (global o por cliente)
+    const botEnabled = client
+      ? client.bot_enabled === 1
+      : (await Setting.get('BOT_ENABLED', 'true')) === 'true';
     if (!botEnabled) return customerMsg;
 
-    // 5. Verificar horario de atención
-    const isWithinHours = await MessageService.checkBusinessHours();
+    // 7. Verificar horario de atención (global o por cliente)
+    const isWithinHours = await MessageService.checkBusinessHours(client);
     if (!isWithinHours) {
-      const outOfHoursText = await Setting.get(
-        'OUT_OF_HOURS_MESSAGE',
-        'Gracias por escribirnos. Estamos fuera de nuestro horario de atención.'
-      );
+      const outOfHoursText = client && client.out_of_hours_message
+        ? client.out_of_hours_message
+        : await Setting.get(
+            'OUT_OF_HOURS_MESSAGE',
+            'Gracias por escribirnos. Estamos fuera de nuestro horario de atención.'
+          );
       await MessageService.sendBotResponse(conversation, contact, outOfHoursText);
       return customerMsg;
     }
 
-    // 6. Intentar responder mediante FAQ
-    const faqMatch = await KnowledgeItem.searchKeywords(text);
-    if (faqMatch) {
-      await MessageService.sendBotResponse(conversation, contact, faqMatch.answer);
-      return customerMsg;
-    }
-
-    // 7. Intentar responder con IA
+    // 8. Buscar respuesta inteligente (FAQ mejorado + API externa)
     const history = await Message.getByConversation(conversation.id, { limit: 10 });
-    const aiResponse = await AIService.generateResponse(text, history);
-    if (aiResponse) {
-      await MessageService.sendBotResponse(conversation, contact, aiResponse);
+    const response = await DynamicResponseEngine.findResponse(text, resolvedClientId, contact, history);
+
+    if (response) {
+      await MessageService.sendBotResponse(conversation, contact, response.answer);
     } else {
-      // 8. Mensaje de bienvenida solo si es la primera vez que escribe (1 mensaje en historial)
+      // 9. Sin respuesta → mensaje de bienvenida (solo primera interacción)
       if (history.length <= 1) {
-        const welcomeText = await Setting.get(
-          'WELCOME_MESSAGE',
-          '¡Hola! 👋 Bienvenido. Un agente te atenderá pronto.'
-        );
+        const welcomeText = client && client.welcome_message
+          ? DynamicResponseEngine.renderTemplate(client.welcome_message, contact)
+          : await Setting.get('WELCOME_MESSAGE', '¡Hola! 👋 Bienvenido. Un agente te atenderá pronto.');
         await MessageService.sendBotResponse(conversation, contact, welcomeText);
       }
     }
@@ -142,10 +147,17 @@ class MessageService {
     return agentMsg;
   }
 
-  static async checkBusinessHours() {
-    const hoursStart = await Setting.get('BUSINESS_HOURS_START', '08:00');
-    const hoursEnd = await Setting.get('BUSINESS_HOURS_END', '17:00');
-    const hoursDays = (await Setting.get('BUSINESS_HOURS_DAYS', '1,2,3,4,5')).split(',').map(Number);
+  static async checkBusinessHours(client = null) {
+    const hoursStart = client && client.business_hours_start
+      ? client.business_hours_start
+      : await Setting.get('BUSINESS_HOURS_START', '08:00');
+    const hoursEnd = client && client.business_hours_end
+      ? client.business_hours_end
+      : await Setting.get('BUSINESS_HOURS_END', '17:00');
+    const hoursDays = ((client && client.business_hours_days)
+      ? client.business_hours_days
+      : await Setting.get('BUSINESS_HOURS_DAYS', '1,2,3,4,5')
+    ).split(',').map(Number);
 
     const now = new Date();
     const currentDay = now.getDay() === 0 ? 7 : now.getDay();

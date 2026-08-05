@@ -3,6 +3,7 @@ const router = express.Router();
 const jwt = require('jsonwebtoken');
 const QRCode = require('qrcode');
 const { authenticateToken, JWT_SECRET } = require('../middleware/auth');
+const rateLimiter = require('../middleware/rateLimiter');
 const User = require('../models/User');
 const Conversation = require('../models/Conversation');
 const Message = require('../models/Message');
@@ -10,12 +11,15 @@ const Contact = require('../models/Contact');
 const KnowledgeItem = require('../models/KnowledgeItem');
 const Setting = require('../models/Setting');
 const ApiKey = require('../models/ApiKey');
+const Client = require('../models/Client');
 const QrSession = require('../models/QrSession');
 const MessageService = require('../services/messageService');
 const { dbAsync } = require('../../database/database');
 
+const loginLimiter = rateLimiter({ windowMs: 60 * 1000, max: 10 });
+
 // Login de usuario admin/agente
-router.post('/login', async (req, res) => {
+router.post('/login', loginLimiter, async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) {
     return res.status(400).json({ error: 'Email y contraseña son requeridos' });
@@ -365,6 +369,55 @@ router.post('/users', async (req, res) => {
     const user = await User.create({ name, email, password, role });
     delete user.password;
     res.json({ user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// --- CLIENTES (Multi-Tenant) ---
+router.get('/clients', async (req, res) => {
+  try {
+    const clients = await Client.getAll({ activeOnly: false });
+    res.json({ clients });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/clients/:id', async (req, res) => {
+  try {
+    const client = await Client.findById(req.params.id);
+    if (!client) return res.status(404).json({ error: 'Cliente no encontrado' });
+    res.json({ client });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/clients', async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name) return res.status(400).json({ error: 'Nombre del cliente es requerido' });
+    const client = await Client.create(req.body);
+    res.json({ client });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/clients/:id', async (req, res) => {
+  try {
+    const client = await Client.update(req.params.id, req.body);
+    res.json({ client });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/clients/:id', async (req, res) => {
+  try {
+    await Client.delete(req.params.id);
+    res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

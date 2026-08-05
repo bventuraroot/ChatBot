@@ -14,7 +14,7 @@ class Contact {
   }
 
   // Busca por phone, luego por email, y si no existe, crea
-  static async findOrCreate({ phone, email = null, name, channel, avatar = null, notes = null }) {
+  static async findOrCreate({ phone, email = null, name, channel, avatar = null, notes = null, client_id = null }) {
     // 1. Buscar por phone (visitor_id estable)
     if (phone) {
       let contact = await Contact.findByPhone(phone);
@@ -23,15 +23,17 @@ class Contact {
         const newName = name && name !== 'Visitante Web' && name !== contact.name ? name : null;
         const newEmail = email && !contact.email ? email : null;
         const newNotes = notes && notes !== contact.notes ? notes : null;
-        if (newName || newEmail || newNotes) {
+        const newClientId = client_id && !contact.client_id ? client_id : null;
+        if (newName || newEmail || newNotes || newClientId) {
           await dbAsync.run(
             `UPDATE contacts SET
               name  = COALESCE(?, name),
               email = COALESCE(?, email),
               notes = COALESCE(?, notes),
+              client_id = COALESCE(?, client_id),
               updated_at = CURRENT_TIMESTAMP
              WHERE id = ?`,
-            [newName, newEmail, newNotes, contact.id]
+            [newName, newEmail, newNotes, newClientId, contact.id]
           );
           return await Contact.findById(contact.id);
         }
@@ -48,6 +50,7 @@ class Contact {
         const params = [];
         if (phone && !contact.phone) { updates.push('phone = ?'); params.push(phone); }
         if (notes && !contact.notes) { updates.push('notes = ?'); params.push(notes); }
+        if (client_id && !contact.client_id) { updates.push('client_id = ?'); params.push(client_id); }
         if (updates.length) {
           updates.push('updated_at = CURRENT_TIMESTAMP');
           params.push(contact.id);
@@ -60,8 +63,8 @@ class Contact {
 
     // 3. Crear nuevo contacto
     const result = await dbAsync.run(
-      'INSERT INTO contacts (phone, email, name, channel, avatar, notes) VALUES (?, ?, ?, ?, ?, ?)',
-      [phone, email, name, channel, avatar, notes]
+      'INSERT INTO contacts (phone, email, name, channel, avatar, notes, client_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [phone, email, name, channel, avatar, notes, client_id]
     );
     return await Contact.findById(result.lastID);
   }

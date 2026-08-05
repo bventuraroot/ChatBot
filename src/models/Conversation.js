@@ -18,7 +18,7 @@ class Conversation {
 
   // Devuelve la conversación más reciente del contacto (abierta o cerrada).
   // Si estaba cerrada, la reabre para mantener TODO el historial en un mismo hilo.
-  static async findOrCreateForContact(contactId, channel) {
+  static async findOrCreateForContact(contactId, channel, clientId = null) {
     // Buscar la conversación más reciente (sin importar estado)
     let conversation = await dbAsync.get(
       'SELECT * FROM conversations WHERE contact_id = ? ORDER BY id DESC LIMIT 1',
@@ -28,8 +28,8 @@ class Conversation {
     if (!conversation) {
       // Primera vez que escribe → crear nueva
       const result = await dbAsync.run(
-        'INSERT INTO conversations (contact_id, channel, status) VALUES (?, ?, "open")',
-        [contactId, channel]
+        'INSERT INTO conversations (contact_id, channel, status, client_id) VALUES (?, ?, "open", ?)',
+        [contactId, channel, clientId]
       );
       return await Conversation.findById(result.lastID);
     }
@@ -39,6 +39,14 @@ class Conversation {
       await dbAsync.run(
         'UPDATE conversations SET status = "open", unread_count = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
         [conversation.id]
+      );
+    }
+
+    // Actualizar client_id si se proporcionó y no tenía
+    if (clientId && !conversation.client_id) {
+      await dbAsync.run(
+        'UPDATE conversations SET client_id = ? WHERE id = ?',
+        [clientId, conversation.id]
       );
     }
 

@@ -11,21 +11,49 @@ CREATE TABLE IF NOT EXISTS users (
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS clients (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT,
+    -- Mapeo de canal: qué número de WhatsApp o widget pertenece a este cliente
+    whatsapp_phone_id TEXT, -- Phone Number ID de WhatsApp Cloud API
+    whatsapp_instance TEXT, -- Nombre de instancia de Evolution API
+    webchat_identifier TEXT, -- Identificador único para el widget web (data-client-id)
+    -- API externa para respuestas dinámicas (opcional)
+    external_api_url TEXT, -- URL del sistema del cliente (contabilidad, inventario, etc.)
+    external_api_key TEXT, -- API key para la API externa del cliente
+    external_api_timeout INTEGER DEFAULT 5000, -- Timeout en ms
+    -- Comportamiento del bot por cliente
+    welcome_message TEXT DEFAULT '¡Hola! ¿En qué puedo ayudarte?',
+    out_of_hours_message TEXT,
+    bot_enabled INTEGER DEFAULT 1,
+    business_hours_start TEXT DEFAULT '08:00',
+    business_hours_end TEXT DEFAULT '17:00',
+    business_hours_days TEXT DEFAULT '1,2,3,4,5',
+    -- Estado
+    is_active INTEGER DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS contacts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     phone TEXT UNIQUE,
     email TEXT,
     name TEXT NOT NULL,
     channel TEXT NOT NULL, -- 'whatsapp_cloud', 'whatsapp_evolution', 'webchat'
+    client_id INTEGER, -- Cliente al que pertenece este contacto
     avatar TEXT,
     notes TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS conversations (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     contact_id INTEGER NOT NULL,
+    client_id INTEGER, -- Cliente dueño de esta conversación
     channel TEXT NOT NULL, -- 'whatsapp_cloud', 'whatsapp_evolution', 'webchat'
     status TEXT DEFAULT 'open', -- 'open', 'pending', 'closed'
     assigned_to INTEGER, -- User ID
@@ -34,6 +62,7 @@ CREATE TABLE IF NOT EXISTS conversations (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (contact_id) REFERENCES contacts(id) ON DELETE CASCADE,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL,
     FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL
 );
 
@@ -53,13 +82,17 @@ CREATE TABLE IF NOT EXISTS messages (
 
 CREATE TABLE IF NOT EXISTS knowledge_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_id INTEGER, -- NULL = global (aplica a todos los clientes)
     category TEXT DEFAULT 'General',
     question TEXT NOT NULL,
     answer TEXT NOT NULL,
     keywords TEXT, -- Separados por comas para búsqueda rápida
+    match_type TEXT DEFAULT 'keyword', -- 'keyword', 'exact', 'regex', 'any'
+    priority INTEGER DEFAULT 0, -- Mayor prioridad se revisa primero
     is_active INTEGER DEFAULT 1,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS settings (

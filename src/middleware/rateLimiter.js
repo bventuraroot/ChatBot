@@ -1,5 +1,15 @@
 const requestCounts = new Map();
 
+// Limpiar registros expirarados periódicamente para evitar memory leaks
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of requestCounts.entries()) {
+    if (now > data.resetTime) {
+      requestCounts.delete(ip);
+    }
+  }
+}, 5 * 60 * 1000).unref();
+
 function rateLimiter(options = { windowMs: 60 * 1000, max: 100 }) {
   return (req, res, next) => {
     const ip = req.ip || req.headers['x-forwarded-for'] || req.connection.remoteAddress;

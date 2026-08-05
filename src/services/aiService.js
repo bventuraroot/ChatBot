@@ -3,15 +3,19 @@ const Setting = require('../models/Setting');
 const KnowledgeItem = require('../models/KnowledgeItem');
 
 class AIService {
-  static async generateResponse(userMessage, conversationHistory = []) {
+  static async generateResponse(userMessage, conversationHistory = [], clientId = null) {
     const provider = (await Setting.get('AI_PROVIDER', 'none')).toLowerCase();
+    if (!provider || provider === 'none') {
+      return null;
+    }
+
     const systemPrompt = await Setting.get(
       'AI_SYSTEM_PROMPT',
       'Eres un asistente virtual amable y profesional. Respondes preguntas sobre nuestros servicios.'
     );
 
-    // Obtener contenido de la base de conocimiento para enriquecer el prompt
-    const faqs = await KnowledgeItem.getAll({ activeOnly: true });
+    // Obtener contenido de la base de conocimiento (cliente + global) para enriquecer el prompt
+    const faqs = await KnowledgeItem.getAll({ activeOnly: true, clientId });
     let contextText = '';
     if (faqs.length > 0) {
       contextText = '\n\nInformación oficial y preguntas frecuentes de la empresa:\n';

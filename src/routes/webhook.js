@@ -1,9 +1,13 @@
 const express = require('express');
 const router = express.Router();
+const rateLimiter = require('../middleware/rateLimiter');
 const Setting = require('../models/Setting');
 const WhatsAppCloudChannel = require('../channels/whatsapp-cloud');
 const WhatsAppEvolutionChannel = require('../channels/whatsapp-evolution');
 const MessageService = require('../services/messageService');
+
+const webhookLimiter = rateLimiter({ windowMs: 60 * 1000, max: 120 });
+router.use(webhookLimiter);
 
 // Handshake de verificación de Webhook de Meta (WhatsApp Cloud API)
 router.get('/whatsapp-cloud', async (req, res) => {
@@ -30,6 +34,9 @@ router.post('/whatsapp-cloud', async (req, res) => {
 
   const parsed = WhatsAppCloudChannel.parseIncomingWebhook(req.body);
   if (parsed) {
+    // Extraer phone_number_id para identificar al cliente
+    const phoneNumberId = req.body?.entry?.[0]?.changes?.[0]?.value?.metadata?.phone_number_id;
+
     await MessageService.handleIncomingMessage({
       phone: parsed.phone,
       name: parsed.name,
@@ -37,7 +44,8 @@ router.post('/whatsapp-cloud', async (req, res) => {
       text: parsed.text,
       mediaUrl: parsed.mediaUrl,
       mediaType: parsed.mediaType,
-      metadata: { rawMessageId: parsed.rawMessageId }
+      metadata: { rawMessageId: parsed.rawMessageId },
+      channelData: { phone_number_id: phoneNumberId }
     });
   }
 });
@@ -48,6 +56,9 @@ router.post('/whatsapp-evolution', async (req, res) => {
 
   const parsed = WhatsAppEvolutionChannel.parseIncomingWebhook(req.body);
   if (parsed) {
+    // Extraer instance name para identificar al cliente
+    const instance = req.body?.instance;
+
     await MessageService.handleIncomingMessage({
       phone: parsed.phone,
       name: parsed.name,
@@ -55,7 +66,8 @@ router.post('/whatsapp-evolution', async (req, res) => {
       text: parsed.text,
       mediaUrl: parsed.mediaUrl,
       mediaType: parsed.mediaType,
-      metadata: { rawMessageId: parsed.rawMessageId }
+      metadata: { rawMessageId: parsed.rawMessageId },
+      channelData: { instance }
     });
   }
 });
