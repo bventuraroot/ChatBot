@@ -34,7 +34,7 @@ class AIService {
       externalText = `\n\nDatos actuales del sistema del cliente obtenidos en tiempo real (usa estos datos para responder con precisión):\n${externalContext}\n`;
     }
 
-    const fullSystemPrompt = `${systemPrompt}${contextText}${externalText}\n\nResponde de manera concisa, clara y profesional en español. IMPORTANTE: Si el usuario pide hablar con un agente humano, un asesor, una persona real, o si NO puedes responder su pregunta con seguridad, comienza tu respuesta EXACTAMENTE con el marcador [HUMANO] y luego el mensaje de despedida que le indicará que un agente lo atenderá. Si puedes responder normal, NO uses el marcador.`;
+    const fullSystemPrompt = `${systemPrompt}${contextText}${externalText}\n\nResponde de manera concisa, clara, amable y profesional en español. Eres un asistente virtual que puede manejar tanto preguntas de negocio como conversación casual. No digas que eres una IA ni menciones tus limitaciones — simplemente responde lo mejor que puedas.\n\nIMPORTANTE: SOLO usa el marcador [HUMANO] al inicio de tu respuesta cuando el usuario EXPLÍCITAMENTE pida hablar con una persona (agente, asesor, humano, representante). En cualquier otro caso, NUNCA uses [HUMANO].`;
 
     const aiText = await (async () => {
       if (provider === 'openai') {

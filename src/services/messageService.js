@@ -84,27 +84,11 @@ class MessageService {
       return customerMsg;
     }
 
-    // 8. Verificar horario de atención (global o por cliente)
-    const isWithinHours = await MessageService.checkBusinessHours(client);
-    if (!isWithinHours) {
-      if (process.env.DEBUG_LOGS === 'true') {
-        console.log('🕐 Fuera de horario: respondiendo mensaje de fuera de horas');
-      }
-      const outOfHoursText = client && client.out_of_hours_message
-        ? client.out_of_hours_message
-        : await Setting.get(
-            'OUT_OF_HOURS_MESSAGE',
-            'Gracias por escribirnos. Estamos fuera de nuestro horario de atención.'
-          );
-      await MessageService.sendBotResponse(conversation, contact, outOfHoursText);
-      return customerMsg;
-    }
-
-    // 9. Buscar respuesta inteligente (FAQ mejorado + API externa)
+    // 8. FAQ + IA (siempre, el chatbot responde preguntas 24/7)
     const history = await Message.getByConversation(conversation.id, { limit: 10 });
 
     if (process.env.DEBUG_LOGS === 'true') {
-      console.log(`🤖 Dentro de horario, bot activo. Buscando respuesta para: "${text}"`);
+      console.log(`🤖 Buscando respuesta para: "${text}"`);
     }
     const response = await DynamicResponseEngine.findResponse(text, resolvedClientId, contact, history);
 
@@ -117,8 +101,21 @@ class MessageService {
         await MessageService.escalateToHuman(conversation, contact, text);
       }
     } else {
-      // 9. Sin respuesta → mensaje de bienvenida (solo primera interacción)
-      if (history.length <= 1) {
+      // 9. Sin respuesta → verificar horario para elegir mensaje
+      const isWithinHours = await MessageService.checkBusinessHours(client);
+      if (!isWithinHours) {
+        if (process.env.DEBUG_LOGS === 'true') {
+          console.log('🕐 Sin respuesta y fuera de horario');
+        }
+        const outOfHoursText = client && client.out_of_hours_message
+          ? client.out_of_hours_message
+          : await Setting.get(
+              'OUT_OF_HOURS_MESSAGE',
+              'Gracias por escribirnos. Estamos fuera de nuestro horario de atención.'
+            );
+        await MessageService.sendBotResponse(conversation, contact, outOfHoursText);
+      } else if (history.length <= 1) {
+        // Bienvenida solo si es la primera interacción y estamos en horario
         const welcomeText = client && client.welcome_message
           ? DynamicResponseEngine.renderTemplate(client.welcome_message, contact)
           : await Setting.get('WELCOME_MESSAGE', '¡Hola! 👋 Bienvenido. Un agente te atenderá pronto.');
