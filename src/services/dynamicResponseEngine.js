@@ -30,13 +30,22 @@ class DynamicResponseEngine {
       }
     }
 
-    // 3. IA (OpenAI / Gemini si está configurado)
+    // 3. IA (OpenAI / Gemini / OpenCode Zen si está configurado)
+    if (process.env.DEBUG_LOGS === 'true') {
+      console.log(`🤖 Buscando respuesta IA para: "${text}"`);
+    }
     const aiAnswer = await AIService.generateResponse(text, history, clientId);
     if (aiAnswer) {
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log(`🤖 IA respondió (source=ai): "${aiAnswer.slice(0, 80)}"`);
+      }
       return {
         source: 'ai',
         answer: DynamicResponseEngine.renderTemplate(aiAnswer, contact)
       };
+    }
+    if (process.env.DEBUG_LOGS === 'true') {
+      console.log('🤖 IA no devolvió respuesta (null)');
     }
 
     return null; // Sin respuesta encontrada

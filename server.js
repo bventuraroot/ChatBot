@@ -197,6 +197,9 @@ io.on('connection', (socket) => {
         metadata: { system, role },
         clientId: resolvedClientId
       });
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log(`✅ Mensaje webchat procesado: "${text}" → ${name}`);
+      }
     } catch (err) {
       console.error('❌ Error procesando mensaje de webchat:', err);
     }
