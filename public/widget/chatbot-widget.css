@@ -147,6 +147,21 @@
   font-size: 0.9rem;
 }
 
+.cb-attach-btn {
+  background: #1e293b;
+  border: 1px solid #334155;
+  border-radius: 8px;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 10px;
+}
+
+.cb-attach-btn:hover {
+  background: #334155;
+  color: white;
+}
+
 .cb-input:focus {
   outline: none;
   border-color: var(--cb-main-color, #10b981);

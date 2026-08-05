@@ -69,8 +69,8 @@
 
           <div class="chat-input-area" id="chat-input-area" style="display: none;">
             <input type="file" id="img-upload-input" accept="image/*" style="display:none;" onchange="uploadAndSendImage(event)">
-            <button class="btn btn-secondary" onclick="document.getElementById('img-upload-input').click()" title="Adjuntar captura/imagen">📎</button>
-            <input type="text" id="msg-input" class="form-control" placeholder="Escribe un mensaje..." onkeypress="handleKeyPress(event)">
+            <button class="btn btn-secondary" onclick="document.getElementById('img-upload-input').click()" title="Adjuntar captura/imagen (o Ctrl+V)">📎</button>
+            <input type="text" id="msg-input" class="form-control" placeholder="Escribe un mensaje... o pega una imagen (Ctrl+V)" onkeypress="handleKeyPress(event)">
             <button class="btn btn-accent" onclick="sendMessage()">Enviar ➔</button>
           </div>
         </div>
@@ -299,36 +299,12 @@
       }
     }
 
-    // Sube la captura/imagen y la envía como mensaje
-    async function uploadAndSendImage(event) {
+    // Sube la captura/imagen elegida con el botón 📎 y la envía
+    function uploadAndSendImage(event) {
       const file = event.target.files[0];
       if (!file || !activeConversationId) return;
       event.target.value = '';
-
-      const token = localStorage.getItem('cb_token');
-      const formData = new FormData();
-      formData.append('file', file);
-
-      try {
-        const resp = await fetch('/admin/api/upload', {
-          method: 'POST',
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-          body: formData
-        });
-        const data = await resp.json();
-        if (!resp.ok) throw new Error(data.error || 'Error al subir');
-
-        await apiFetch(`/conversations/${activeConversationId}/messages`, {
-          method: 'POST',
-          body: JSON.stringify({
-            text: '',
-            media_url: data.url,
-            media_type: data.media_type
-          })
-        });
-      } catch (err) {
-        alert('Error al adjuntar imagen: ' + err.message);
-      }
+      sendImageFile(file);
     }
 
     function handleKeyPress(e) {
@@ -359,6 +335,48 @@
       messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
+    // Pega una imagen (Ctrl+V) y la envía automáticamente
+    function handlePaste(e) {
+      if (!activeConversationId) return;
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type && item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          sendImageFile(file);
+          return;
+        }
+      }
+    }
+
+    // Sube y envía un archivo de imagen como mensaje
+    async function sendImageFile(file) {
+      if (!file || !activeConversationId) return;
+      const token = localStorage.getItem('cb_token');
+      const formData = new FormData();
+      formData.append('file', file);
+      try {
+        const resp = await fetch('/admin/api/upload', {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData
+        });
+        const data = await resp.json();
+        if (!resp.ok) throw new Error(data.error || 'Error al subir');
+        await apiFetch(`/conversations/${activeConversationId}/messages`, {
+          method: 'POST',
+          body: JSON.stringify({
+            text: '',
+            media_url: data.url,
+            media_type: data.media_type
+          })
+        });
+      } catch (err) {
+        alert('Error al adjuntar imagen: ' + err.message);
+      }
+    }
+
     function escapeHtml(text) {
       const div = document.createElement('div');
       div.textContent = text;
@@ -368,6 +386,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       initSocket();
       loadConversations();
+      document.addEventListener('paste', handlePaste);
     });
   </script>
 </body>

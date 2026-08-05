@@ -64,7 +64,9 @@
         <div class="cb-messages" id="cb-messages-box"></div>
         <div id="cb-status-bar" class="cb-status-bar" style="display:none"></div>
         <div class="cb-input-area" id="cb-input-area">
-          <input type="text" class="cb-input" id="cb-input-field" placeholder="Escribe un mensaje...">
+          <input type="file" id="cb-file-input" accept="image/*" style="display:none;">
+          <button class="cb-attach-btn" id="cb-attach-btn" title="Adjuntar imagen (Ctrl+V)">📎</button>
+          <input type="text" class="cb-input" id="cb-input-field" placeholder="Escribe un mensaje... o pega una imagen">
           <button class="cb-send-btn" id="cb-send-btn" title="Enviar">➔</button>
         </div>
       </div>
@@ -176,6 +178,73 @@
     document.getElementById('cb-input-field').addEventListener('keypress', (e) => {
       if (e.key === 'Enter') sendMessage();
     });
+
+    // Adjuntar imagen: botón 📎 o pegar (Ctrl+V)
+    document.getElementById('cb-attach-btn').addEventListener('click', () => {
+      document.getElementById('cb-file-input').click();
+    });
+    document.getElementById('cb-file-input').addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      e.target.value = '';
+      if (file) sendImage(file);
+    });
+    document.addEventListener('paste', (e) => {
+      const items = e.clipboardData && e.clipboardData.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type && item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) sendImage(file);
+          return;
+        }
+      }
+    });
+
+    // Sube la imagen y la envía como mensaje del cliente
+    function sendImage(file) {
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Mostrar la imagen al instante en el chat del cliente
+      const reader = new FileReader();
+      reader.onload = (ev) => {
+        const box = document.getElementById('cb-messages-box');
+        const div = document.createElement('div');
+        div.className = 'cb-msg cb-msg-customer';
+        const img = document.createElement('img');
+        img.className = 'cb-msg-image';
+        img.src = ev.target.result;
+        div.appendChild(img);
+        box.appendChild(div);
+        scrollChat();
+      };
+      reader.readAsDataURL(file);
+
+      fetch(`${serverUrl}/chat/upload`, {
+        method: 'POST',
+        body: formData
+      })
+        .then(r => r.json())
+        .then(data => {
+          if (!data.url) throw new Error(data.error || 'Error al subir');
+          socket.emit('webchat_message', {
+            visitor_id: visitorId,
+            name: userName,
+            email: userEmail,
+            role: userRole,
+            system: systemName,
+            client_id: clientId,
+            text: '',
+            media_url: data.url,
+            media_type: 'image'
+          });
+        })
+        .catch(err => {
+          console.error('Error subiendo imagen:', err);
+          appendMsg('⚠️ No se pudo enviar la imagen. Intenta de nuevo.', 'bot');
+        });
+    }
 
     function sendMessage() {
       const input = document.getElementById('cb-input-field');

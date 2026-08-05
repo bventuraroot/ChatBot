@@ -173,10 +173,13 @@ io.on('connection', (socket) => {
   // Mensaje recibido del visitante vía WebSocket
   socket.on('webchat_message', async (data) => {
     try {
-      if (!data || !data.text || !String(data.text).trim()) return;
+      if (!data) return;
+      const text = data.text ? String(data.text).trim() : '';
+      const mediaUrl = data.media_url || null;
+      const mediaType = data.media_type || null;
+      if (!text && !mediaUrl) return;
 
       const ctx = socket.userContext || {};
-      const { text } = data;
 
       const name = data.name || ctx.name;
       const email = data.email || ctx.email;
@@ -205,6 +208,8 @@ io.on('connection', (socket) => {
         email: email || null,
         channel: 'webchat',
         text,
+        mediaUrl,
+        mediaType,
         notes,
         metadata: { system, role },
         clientId: resolvedClientId
