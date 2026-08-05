@@ -49,15 +49,18 @@ router.post('/upload', chatLimiter, upload.single('file'), (req, res) => {
 // POST /chat/message — Enviar mensaje desde el widget web vía REST (si no usa socket)
 router.post('/message', chatLimiter, async (req, res) => {
   try {
-    const { name, email, text, visitor_id } = req.body;
+    const { name, email, text, visitor_id, page_url, page_title } = req.body;
     if (!text) return res.status(400).json({ error: 'Texto es requerido' });
+
+    const notes = page_url ? `Web: ${page_url}${page_title ? ' | Página: ' + page_title : ''}` : null;
 
     const message = await MessageService.handleIncomingMessage({
       phone: visitor_id || null,
       email,
       name: name || 'Visitante Web',
       channel: 'webchat',
-      text
+      text,
+      notes
     });
 
     res.json({ success: true, message });

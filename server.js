@@ -122,7 +122,7 @@ io.on('connection', (socket) => {
   console.log('⚡ Nuevo cliente WebSocket conectado:', socket.id);
 
   // Registro de visitante de Chat Web: guarda contexto y envía historial
-  socket.on('join_webchat', async (data) => {
+    socket.on('join_webchat', async (data) => {
     const Contact = require('./src/models/Contact');
     const Conversation = require('./src/models/Conversation');
     const Message = require('./src/models/Message');
@@ -139,9 +139,11 @@ io.on('connection', (socket) => {
       email: data.email,
       role: data.role,
       system: data.system,
-      client_id: data.client_id
+      client_id: data.client_id,
+      page_url: data.page_url,
+      page_title: data.page_title
     };
-    console.log(`👤 Visitante registrado: ${data.name || data.visitor_id} [${data.system || 'web'}]`);
+    console.log(`👤 Visitante registrado: ${data.name || data.visitor_id} [${data.system || 'web'}]${data.page_url ? ' desde ' + data.page_url : ''}`);
 
     // Enviar historial de mensajes al widget para que el usuario vea su conversación anterior
     try {
@@ -195,9 +197,13 @@ io.on('connection', (socket) => {
 
       if (!visitorId) return;
 
-      const notes = system
-        ? `Origen: ${system}${role ? ' | Rol: ' + role : ''}`
-        : null;
+      const notes = (() => {
+        const parts = [];
+        if (data.page_url) parts.push('Web: ' + data.page_url);
+        if (system) parts.push('Origen: ' + system);
+        if (role) parts.push('Rol: ' + role);
+        return parts.length > 0 ? parts.join(' | ') : null;
+      })();
 
       // Resolver client_id desde el contexto del socket
       let resolvedClientId = null;
@@ -217,7 +223,7 @@ io.on('connection', (socket) => {
         mediaUrl,
         mediaType,
         notes,
-        metadata: { system, role },
+        metadata: data.metadata || { system, role },
         clientId: resolvedClientId
       });
 

@@ -449,6 +449,20 @@ tr:last-child td { border-bottom: none; }
   border-bottom-right-radius: 2px;
 }
 
+.msg-bug {
+  align-self: flex-start;
+  background-color: #7f1d1d;
+  color: #fca5a5;
+  border: 1px solid #ef4444;
+  border-bottom-left-radius: 2px;
+  max-width: 85%;
+}
+
+.msg-bug pre,
+.msg-bug div {
+  color: #fecaca;
+}
+
 .msg-image {
   max-width: 240px;
   max-height: 240px;

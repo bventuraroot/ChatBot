@@ -49,7 +49,26 @@ class MessageService {
     NotificationService.notifyNewMessage(conversation.id, customerMsg, contact);
     NotificationService.notifyConversationUpdated(await Conversation.findById(conversation.id));
 
-    // 5. Verificar si la conversación fue tomada por un humano
+    // 5. Detectar reporte de bug — no responde el bot, solo notifica al admin
+    const isBugReport = (metadata && metadata.type === 'bug_report')
+      || (text && text.includes('*REPORTE DE BUG*'));
+    if (isBugReport) {
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log(`🐛 Reporte de bug recibido de ${contact.name || contact.phone}`);
+      }
+      // Notificar al admin con alerta especial
+      NotificationService.notifyAlert({
+        type: 'bug_report',
+        conversation_id: conversation.id,
+        contact_name: contact.name || 'Visitante',
+        message: text.substring(0, 120),
+        channel: 'Web Chat',
+        time: new Date().toISOString()
+      });
+      return customerMsg;
+    }
+
+    // 6. Verificar si la conversación fue tomada por un humano
     if (conversation.assigned_to && conversation.assigned_to > 0) {
       if (process.env.DEBUG_LOGS === 'true') {
         console.log(`🚫 Bot no responde: conversación ${conversation.id} asignada a agente (${conversation.assigned_to})`);
@@ -57,7 +76,7 @@ class MessageService {
       return customerMsg;
     }
 
-    // 6. Verificar si el bot está habilitado (global o por cliente)
+    // 7. Verificar si el bot está habilitado (global o por cliente)
     const botEnabled = client
       ? client.bot_enabled === 1
       : (await Setting.get('BOT_ENABLED', 'true')) === 'true';

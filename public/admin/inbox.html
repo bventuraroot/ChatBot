@@ -201,12 +201,18 @@
     function showAlert(data) {
       const container = document.getElementById('alert-container');
       const el = document.createElement('div');
-      el.style.cssText = 'background:#1e293b;border:1px solid #f59e0b;border-left:4px solid #f59e0b;border-radius:8px;padding:12px 16px;max-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.5);animation:slideIn 0.3s ease;';
+
+      const isBug = data.type === 'bug_report';
+      const borderColor = isBug ? '#ef4444' : '#f59e0b';
+      const title = isBug ? '🐛 Reporte de Bug' : '🔔 Solicitud de atención humana';
+      const titleColor = isBug ? '#fca5a5' : '#f59e0b';
+
+      el.style.cssText = `background:#1e293b;border:1px solid ${borderColor};border-left:4px solid ${borderColor};border-radius:8px;padding:12px 16px;max-width:320px;box-shadow:0 10px 25px rgba(0,0,0,0.5);animation:slideIn 0.3s ease;`;
       const time = new Date(data.time).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       el.innerHTML = `
-        <div style="font-weight:bold;color:#f59e0b;margin-bottom:4px;">🔔 Solicitud de atención humana</div>
+        <div style="font-weight:bold;color:${titleColor};margin-bottom:4px;">${title}</div>
         <div style="font-size:0.9rem;">👤 <strong>${escapeHtml(data.contact_name || 'Visitante')}</strong> · ${escapeHtml(data.channel || '')}</div>
-        <div style="font-size:0.85rem;color:var(--text-muted);margin:4px 0;">"${escapeHtml(data.message || '')}"</div>
+        <div style="font-size:0.85rem;color:var(--text-muted);margin:4px 0;">"${escapeHtml((data.message || '').substring(0, 150))}"</div>
         <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px;">
           <span style="font-size:0.75rem;color:var(--text-muted);">${time}</span>
           <button class="btn btn-accent" style="padding:4px 10px;font-size:0.8rem;" onclick="selectConversation(${data.conversation_id}); this.closest('[data-alert]').remove();">Ir al chat →</button>
@@ -294,6 +300,9 @@
       const messagesEl = document.getElementById('chat-messages');
       const bubble = document.createElement('div');
       
+      // Detectar reporte de bug
+      const isBugReport = msg.text && msg.text.startsWith('🐛 *REPORTE DE BUG*');
+      
       let typeClass = 'msg-customer';
       let senderLabel = 'Cliente';
       if (msg.sender_type === 'agent') {
@@ -302,6 +311,9 @@
       } else if (msg.sender_type === 'bot') {
         typeClass = 'msg-bot';
         senderLabel = ' Bot IA';
+      } else if (isBugReport) {
+        typeClass = 'msg-bug';
+        senderLabel = '🐛 Bug Report';
       }
 
       bubble.className = `msg-bubble ${typeClass}`;
@@ -319,14 +331,29 @@
         mediaHtml = `<a href="${escapeHtml(msg.media_url)}" target="_blank" class="msg-doc">📄 Ver documento</a>`;
       }
 
+      // Para bug reports, renderizar con pre y formato especial
+      let textHtml = '';
+      if (isBugReport) {
+        textHtml = `<pre style="white-space:pre-wrap;font-size:0.82rem;line-height:1.5;margin:0;">${formatBugText(msg.text)}</pre>`;
+      } else if (msg.text) {
+        textHtml = `<div>${escapeHtml(msg.text)}</div>`;
+      }
+
       bubble.innerHTML = `
         <div style="font-size: 0.7rem; font-weight: bold; margin-bottom: 4px; opacity: 0.8;">${avatarHtml} ${senderLabel}</div>
         ${mediaHtml}
-        ${msg.text ? `<div>${escapeHtml(msg.text)}</div>` : ''}
+        ${textHtml}
         <span class="msg-time">${timeStr}</span>
       `;
 
       messagesEl.appendChild(bubble);
+    }
+
+    // Resalta negritas en el texto del bug report
+    function formatBugText(text) {
+      return escapeHtml(text)
+        .replace(/\*(.*?)\*/g, '<strong>$1</strong>')
+        .replace(/\n/g, '<br>');
     }
 
     async function sendMessage() {

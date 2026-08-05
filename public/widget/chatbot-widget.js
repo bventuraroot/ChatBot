@@ -11,6 +11,36 @@
   const systemName = scriptTag.getAttribute('data-system')     || null;
   const clientId   = scriptTag.getAttribute('data-client-id')  || null;
 
+  // Origen: dominio y página donde está incrustado el widget
+  const pageUrl   = window.location.hostname || 'unknown';
+  const pageTitle = document.title || '';
+
+  // Captura de errores de la página host para reportes de bugs
+  const pageErrors = [];
+  const MAX_PAGE_ERRORS = 10;
+  window.addEventListener('error', (e) => {
+    if (pageErrors.length < MAX_PAGE_ERRORS) {
+      pageErrors.push({
+        message: e.message || 'Error desconocido',
+        source: e.filename || pageUrl,
+        line: e.lineno || '?',
+        col: e.colno || '?',
+        time: new Date().toISOString()
+      });
+    }
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    if (pageErrors.length < MAX_PAGE_ERRORS) {
+      pageErrors.push({
+        message: 'Promise: ' + (e.reason?.message || String(e.reason)),
+        source: pageUrl,
+        line: '?',
+        col: '?',
+        time: new Date().toISOString()
+      });
+    }
+  });
+
   // Visitor ID estable: email-based si está autenticado, localStorage si es anónimo
   let visitorId = userEmail
     ? 'user_' + userEmail.replace(/[^a-zA-Z0-9]/g, '_')
@@ -52,11 +82,13 @@
     container.innerHTML = `
       <div id="cb-widget-box">
         <div class="cb-header">
+          <div class="cb-mobile-handle"></div>
           <div>
             <div class="cb-header-title">💬 ${escapeHtml(widgetTitle)}</div>
             ${subtitleHtml}
           </div>
           <div style="display: flex; gap: 6px;">
+            <button class="cb-header-close" id="cb-bug-btn" title="Reportar bug">🐛</button>
             <button class="cb-header-close" id="cb-new-session-btn" title="Iniciar nueva conversación">↺</button>
             <button class="cb-header-close" id="cb-close-btn" title="Minimizar">✕</button>
           </div>
@@ -71,9 +103,30 @@
         </div>
       </div>
       <button id="cb-widget-button" title="Abrir chat de soporte">💬</button>
+      <button id="cb-bug-report-btn" title="Reportar un bug">🐛</button>
     `;
 
     document.body.appendChild(container);
+
+    // Modal de reporte de bug (fuera del container del widget)
+    const bugModal = document.createElement('div');
+    bugModal.id = 'cb-bug-modal';
+    bugModal.style.cssText = 'display:none;position:fixed;inset:0;z-index:9999999;background:rgba(0,0,0,0.7);align-items:center;justify-content:center;';
+    bugModal.innerHTML = `
+      <div id="cb-bug-dialog" style="background:#1e293b;color:#f8fafc;border-radius:16px;padding:24px;max-width:420px;width:90%;max-height:85vh;overflow-y:auto;border:1px solid #334155;">
+        <h3 style="margin:0 0 8px;font-size:1.1rem;">🐛 Reportar Bug</h3>
+        <p style="font-size:0.8rem;color:#94a3b8;margin:0 0 16px;">
+          Describe el problema. Se enviará automáticamente la URL de la página y los errores detectados.
+        </p>
+        <div id="cb-bug-info" style="background:#0f172a;border-radius:8px;padding:10px;margin-bottom:14px;font-size:0.78rem;color:#94a3b8;max-height:150px;overflow-y:auto;"></div>
+        <textarea id="cb-bug-description" placeholder="Describe qué pasó, qué esperabas y cómo reproducirlo..." style="width:100%;height:100px;background:#0f172a;color:white;border:1px solid #334155;border-radius:8px;padding:10px;font-size:0.85rem;resize:vertical;box-sizing:border-box;"></textarea>
+        <div style="display:flex;gap:10px;margin-top:14px;justify-content:flex-end;">
+          <button id="cb-bug-cancel" style="background:#334155;color:white;border:none;border-radius:8px;padding:10px 18px;font-size:0.85rem;cursor:pointer;">Cancelar</button>
+          <button id="cb-bug-send" style="background:var(--cb-main-color,#10b981);color:white;border:none;border-radius:8px;padding:10px 18px;font-size:0.85rem;font-weight:600;cursor:pointer;">Enviar Reporte</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(bugModal);
 
     // ── Socket.IO ──────────────────────────────────────────────────
     const socket = io(serverUrl, {
@@ -93,7 +146,9 @@
         email:  userEmail,
         role:   userRole,
         system: systemName,
-        client_id: clientId
+        client_id: clientId,
+        page_url: pageUrl,
+        page_title: pageTitle
       });
     });
 
@@ -154,17 +209,149 @@
       markOpen();
     });
 
+    // ── Reporte de Bugs ────────────────────────────────────────────
+    const bugReportBtn = document.getElementById('cb-bug-report-btn');
+    const bugHeaderBtn = document.getElementById('cb-bug-btn');
+    const bugModalEl = document.getElementById('cb-bug-modal');
+    const bugDesc = document.getElementById('cb-bug-description');
+    const bugInfo = document.getElementById('cb-bug-info');
+    const bugCancel = document.getElementById('cb-bug-cancel');
+    const bugSend = document.getElementById('cb-bug-send');
+
+    function openBugModal() {
+      const infoLines = [
+        `<strong>📍 URL:</strong> ${window.location.href}`,
+        `<strong>📄 Página:</strong> ${pageTitle || 'Sin título'}`,
+        `<strong>🕐 Hora:</strong> ${new Date().toLocaleString()}`,
+        `<strong>👤 Usuario:</strong> ${userName || visitorId}`,
+        `<strong>📏 Pantalla:</strong> ${window.innerWidth}x${window.innerHeight}`,
+        `<strong>🌐 Navegador:</strong> ${navigator.userAgent.split(' ').slice(-1)[0] || navigator.userAgent.substring(0,60)}`
+      ];
+
+      if (pageErrors.length > 0) {
+        infoLines.push('');
+        infoLines.push('<strong>⚠️ Errores detectados en la página:</strong>');
+        pageErrors.forEach((err, i) => {
+          infoLines.push(`${i+1}. ${err.message} (${err.source}:${err.line})`);
+        });
+      }
+
+      bugInfo.innerHTML = infoLines.join('<br>');
+      bugDesc.value = '';
+      bugModalEl.style.display = 'flex';
+    }
+
+    function closeBugModal() {
+      bugModalEl.style.display = 'none';
+    }
+
+    bugReportBtn.addEventListener('click', openBugModal);
+    bugHeaderBtn.addEventListener('click', openBugModal);
+    bugCancel.addEventListener('click', closeBugModal);
+
+    bugSend.addEventListener('click', () => {
+      const description = bugDesc.value.trim();
+      if (!description) {
+        bugDesc.style.borderColor = '#ef4444';
+        setTimeout(() => bugDesc.style.borderColor = '#334155', 2000);
+        return;
+      }
+
+      const bugReport = [
+        '🐛 *REPORTE DE BUG*',
+        '',
+        `📍 *URL:* ${window.location.href}`,
+        `📄 *Página:* ${pageTitle || 'Sin título'}`,
+        `📏 *Pantalla:* ${window.innerWidth}x${window.innerHeight}`,
+        `🌐 *Navegador:* ${navigator.userAgent.substring(0, 80)}`,
+        `📅 *Fecha:* ${new Date().toLocaleString()}`,
+        '',
+        `📝 *Descripción:* ${description}`,
+      ];
+
+      if (pageErrors.length > 0) {
+        bugReport.push('');
+        bugReport.push('⚠️ *Errores JS detectados:*');
+        pageErrors.forEach((err, i) => {
+          bugReport.push(`  ${i+1}. ${err.message}`);
+          bugReport.push(`     → ${err.source}:${err.line}:${err.col}`);
+        });
+      }
+
+      const bugText = bugReport.join('\n');
+
+      // Enviar por WebSocket
+      socket.emit('webchat_message', {
+        visitor_id: visitorId,
+        name: userName,
+        email: userEmail,
+        role: userRole,
+        system: systemName,
+        client_id: clientId,
+        text: bugText,
+        page_url: pageUrl,
+        page_title: pageTitle,
+        metadata: {
+          type: 'bug_report',
+          page_url: window.location.href,
+          page_title: pageTitle,
+          errors: pageErrors,
+          user_agent: navigator.userAgent,
+          screen_size: `${window.innerWidth}x${window.innerHeight}`
+        }
+      });
+
+      // Mostrar confirmación en el chat
+      appendMsg('🐛 Reporte de bug enviado. ¡Gracias! Un agente lo revisará pronto.', 'bot');
+
+      // Abrir el widget para que vea el historial
+      openWidget();
+
+      closeBugModal();
+    });
+
+    bugModalEl.addEventListener('click', (e) => {
+      if (e.target === bugModalEl) closeBugModal();
+    });
+
     // ── UI Events ──────────────────────────────────────────────────
     const toggleBtn = document.getElementById('cb-widget-button');
     const closeBtn  = document.getElementById('cb-close-btn');
     const newSessionBtn = document.getElementById('cb-new-session-btn');
+    const widgetBox = document.getElementById('cb-widget-box');
+
+    function isMobile() {
+      return window.matchMedia('(max-width: 768px)').matches;
+    }
+
+    function lockBodyScroll() {
+      if (isMobile()) {
+        document.body.style.overflow = 'hidden';
+        document.body.style.position = 'fixed';
+        document.body.style.width = '100%';
+        document.body.style.height = '100%';
+      }
+    }
+
+    function unlockBodyScroll() {
+      document.body.style.overflow = '';
+      document.body.style.position = '';
+      document.body.style.width = '';
+      document.body.style.height = '';
+    }
 
     toggleBtn.addEventListener('click', () => {
-      document.getElementById('cb-widget-box').classList.toggle('cb-open');
+      const isOpen = widgetBox.classList.toggle('cb-open');
+      if (isOpen) {
+        lockBodyScroll();
+      } else {
+        unlockBodyScroll();
+      }
       scrollChat();
     });
     closeBtn.addEventListener('click', () => {
-      document.getElementById('cb-widget-box').classList.remove('cb-open');
+      widgetBox.classList.remove('cb-open');
+      unlockBodyScroll();
     });
 
     // Iniciar una NUEVA conversación: limpia la sesión local, genera un
@@ -237,7 +424,9 @@
             client_id: clientId,
             text: '',
             media_url: data.url,
-            media_type: 'image'
+            media_type: 'image',
+            page_url: pageUrl,
+            page_title: pageTitle
           });
         })
         .catch(err => {
@@ -261,7 +450,9 @@
         role:   userRole,
         system: systemName,
         client_id: clientId,
-        text
+        text,
+        page_url: pageUrl,
+        page_title: pageTitle
       });
 
       // Si estaba cerrada, limpiar aviso al enviar nuevo mensaje
@@ -299,7 +490,9 @@
         email:  userEmail,
         role:   userRole,
         system: systemName,
-        client_id: clientId
+        client_id: clientId,
+        page_url: pageUrl,
+        page_title: pageTitle
       });
     }
   }
@@ -395,6 +588,7 @@
     const box = document.getElementById('cb-widget-box');
     if (box && !box.classList.contains('cb-open')) {
       box.classList.add('cb-open');
+      if (isMobile()) lockBodyScroll();
       scrollChat();
     }
   }
