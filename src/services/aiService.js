@@ -43,8 +43,15 @@ class AIService {
     try {
       const messages = [{ role: 'system', content: systemPrompt }];
 
-      // Agregar últimos mensajes de contexto
-      history.slice(-6).forEach((msg) => {
+      // Agregar últimos mensajes de contexto. El historial ya incluye el
+      // mensaje actual del usuario (se guarda antes de llamar a la IA),
+      // así que evitamos duplicarlo al final.
+      const lastCustomerMsg = [...history].reverse().find(m => m.sender_type === 'customer');
+      const historyForPrompt = (lastCustomerMsg && lastCustomerMsg.text === userMessage)
+        ? history.slice(0, -1).slice(-6)
+        : history.slice(-6);
+
+      historyForPrompt.forEach((msg) => {
         messages.push({
           role: msg.sender_type === 'customer' ? 'user' : 'assistant',
           content: msg.text || ''
@@ -65,7 +72,8 @@ class AIService {
           headers: {
             Authorization: `Bearer ${apiKey}`,
             'Content-Type': 'application/json'
-          }
+          },
+          timeout: 30000
         }
       );
 
@@ -83,8 +91,13 @@ class AIService {
     try {
       const contents = [];
 
-      // Historial
-      history.slice(-6).forEach((msg) => {
+      // Historial (evita duplicar el mensaje actual del usuario)
+      const lastCustomerMsg = [...history].reverse().find(m => m.sender_type === 'customer');
+      const historyForPrompt = (lastCustomerMsg && lastCustomerMsg.text === userMessage)
+        ? history.slice(0, -1).slice(-6)
+        : history.slice(-6);
+
+      historyForPrompt.forEach((msg) => {
         contents.push({
           role: msg.sender_type === 'customer' ? 'user' : 'model',
           parts: [{ text: msg.text || '' }]
@@ -99,7 +112,10 @@ class AIService {
       const response = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
         { contents },
-        { headers: { 'Content-Type': 'application/json' } }
+        {
+          headers: { 'Content-Type': 'application/json' },
+          timeout: 30000
+        }
       );
 
       return response.data.candidates[0]?.content?.parts[0]?.text?.trim() || null;

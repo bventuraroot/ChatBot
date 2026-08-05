@@ -53,18 +53,63 @@ class WhatsAppEvolutionChannel {
 
       const phone = data.key?.remoteJid?.split('@')[0];
       const name = data.pushName || phone;
-      const text =
-        data.message?.conversation ||
-        data.message?.extendedTextMessage?.text ||
-        data.message?.imageMessage?.caption ||
-        '';
+
+      const msg = data.message || {};
+      let text = '';
+      let mediaType = null;
+      let mediaUrl = null;
+
+      // Texto plano
+      if (msg.conversation) {
+        text = msg.conversation;
+      } else if (msg.extendedTextMessage?.text) {
+        text = msg.extendedTextMessage.text;
+      } else if (msg.imageMessage) {
+        mediaType = 'image';
+        text = msg.imageMessage.caption || '[IMAGEN]';
+      } else if (msg.videoMessage) {
+        mediaType = 'video';
+        text = msg.videoMessage.caption || '[VIDEO]';
+      } else if (msg.documentMessage) {
+        mediaType = 'document';
+        text = msg.documentMessage.caption || '[DOCUMENTO]';
+      } else if (msg.audioMessage) {
+        mediaType = 'audio';
+        text = '[AUDIO]';
+      } else if (msg.pttMessage) {
+        mediaType = 'audio';
+        text = '[NOTA DE VOZ]';
+      } else if (msg.stickerMessage) {
+        mediaType = 'sticker';
+        text = '[STICKER]';
+      } else if (msg.contactMessage) {
+        text = '[CONTACTO]';
+      } else if (msg.locationMessage) {
+        text = '[UBICACIÓN]';
+      } else if (msg.buttonsResponseMessage) {
+        text = msg.buttonsResponseMessage.selectedButtonId || '[RESPUESTA]';
+      } else if (msg.listResponseMessage) {
+        text = msg.listResponseMessage.singleSelectReply?.selectedRowId || '[SELECCIÓN]';
+      } else if (msg.viewOnceMessage) {
+        // Mensajes con visualización única (imagen/video)
+        const inner = msg.viewOnceMessage.message || {};
+        if (inner.imageMessage) { mediaType = 'image'; text = '[IMAGEN]'; }
+        else if (inner.videoMessage) { mediaType = 'video'; text = '[VIDEO]'; }
+        else text = '[MENSAJE]';
+      }
+
+      // Intentar extraer URL de media si está disponible en el webhook
+      if (mediaType) {
+        const media = msg[`${mediaType}Message`];
+        if (media?.url) mediaUrl = media.url;
+      }
 
       return {
         phone,
         name,
         text,
-        mediaUrl: null,
-        mediaType: null,
+        mediaUrl,
+        mediaType,
         rawMessageId: data.key?.id
       };
     } catch (err) {

@@ -9,6 +9,7 @@
   const userEmail  = scriptTag.getAttribute('data-user-email') || null;
   const userRole   = scriptTag.getAttribute('data-user-role')  || null;
   const systemName = scriptTag.getAttribute('data-system')     || null;
+  const clientId   = scriptTag.getAttribute('data-client-id')  || null;
 
   // Visitor ID estable: email-based si está autenticado, localStorage si es anónimo
   let visitorId = userEmail
@@ -79,7 +80,8 @@
         name:   userName,
         email:  userEmail,
         role:   userRole,
-        system: systemName
+        system: systemName,
+        client_id: clientId
       });
     });
 
@@ -90,7 +92,8 @@
 
       if (!data.messages || data.messages.length === 0) {
         // Primera vez: mensaje de bienvenida
-        appendMsg(`¡Hola${userName ? ', <strong>' + escapeHtml(userName) + '</strong>' : ''}! 👋 ¿En qué podemos ayudarte?`, 'bot');
+        const namePart = userName ? ' <strong>' + escapeHtml(userName) + '</strong>' : '';
+        appendMsg(`¡Hola${namePart}! 👋 ¿En qué podemos ayudarte?`, 'bot');
         return;
       }
 
@@ -157,6 +160,7 @@
         email:  userEmail,
         role:   userRole,
         system: systemName,
+        client_id: clientId,
         text
       });
 
@@ -176,7 +180,8 @@
     const div = document.createElement('div');
     const type = senderType === 'customer' ? 'customer' : 'bot';
     div.className = `cb-msg cb-msg-${type}`;
-    div.innerHTML = text;
+    // Escapar HTML para prevenir XSS: los mensajes son texto plano
+    div.textContent = text || '';
     if (timestamp) {
       const ts = document.createElement('div');
       ts.className = 'cb-msg-time';

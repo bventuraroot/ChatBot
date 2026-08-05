@@ -7,8 +7,11 @@ const fs = require('fs');
 const dbPath = process.env.DB_PATH || path.join(__dirname, 'chatbot.sqlite');
 const db = new sqlite3.Database(dbPath);
 
-// Habilitar claves foráneas
+// Configuración de concurrencia para evitar errores SQLITE_BUSY cuando
+// llegan varios mensajes al mismo tiempo (webhooks + panel admin)
 db.run('PRAGMA foreign_keys = ON');
+db.run('PRAGMA journal_mode = WAL');
+db.run('PRAGMA busy_timeout = 5000');
 
 // Promisificar las funciones de la base de datos
 const dbAsync = {

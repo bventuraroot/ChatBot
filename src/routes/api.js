@@ -44,12 +44,14 @@ router.post('/messages/send', async (req, res) => {
 // GET /api/v1/conversations — Listar conversaciones
 router.get('/conversations', async (req, res) => {
   try {
-    const { status, channel, limit = 50, offset = 0 } = req.query;
+    const { status, channel } = req.query;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
     const conversations = await Conversation.getAll({
       status,
       channel,
-      limit: parseInt(limit),
-      offset: parseInt(offset)
+      limit,
+      offset
     });
     res.json({ conversations });
   } catch (err) {
@@ -70,8 +72,10 @@ router.get('/conversations/:id/messages', async (req, res) => {
 // GET /api/v1/contacts — Listar o buscar contactos
 router.get('/contacts', async (req, res) => {
   try {
-    const { search, limit = 50, offset = 0 } = req.query;
-    const contacts = await Contact.getAll({ search, limit: parseInt(limit), offset: parseInt(offset) });
+    const { search } = req.query;
+    const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 50, 1), 200);
+    const offset = Math.max(parseInt(req.query.offset, 10) || 0, 0);
+    const contacts = await Contact.getAll({ search, limit, offset });
     res.json({ contacts });
   } catch (err) {
     res.status(500).json({ error: err.message });

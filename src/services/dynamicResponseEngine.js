@@ -86,7 +86,8 @@ class DynamicResponseEngine {
           }
         }
       } else {
-        // keyword (default): coincidencia por TODAS las keywords encontradas en el texto
+        // keyword (default): coincide si el texto contiene ALGUNA keyword
+        // o la pregunta completa
         const keywords = (faq.keywords || '').split(',').map(k => k.trim().toLowerCase()).filter(Boolean);
         for (const kw of keywords) {
           if (kw && text.includes(kw)) {

@@ -58,7 +58,12 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json());
+// Capturar raw body para verificación de firmas de webhooks (Meta)
+app.use(express.json({
+  verify: (req, res, buf) => {
+    req.rawBody = buf.toString('utf8');
+  }
+}));
 app.use(express.urlencoded({ extended: true }));
 
 // Servir archivos estáticos del panel admin y widget con headers CORS explícitos
@@ -92,6 +97,11 @@ io.on('connection', (socket) => {
     const Contact = require('./src/models/Contact');
     const Conversation = require('./src/models/Conversation');
     const Message = require('./src/models/Message');
+    const Client = require('./src/models/Client');
+
+    if (!data || !data.visitor_id) {
+      return socket.emit('conversation_history', { conversation_id: null, status: 'open', messages: [] });
+    }
 
     socket.join(`visitor_${data.visitor_id}`);
     socket.userContext = {
@@ -106,11 +116,6 @@ io.on('connection', (socket) => {
 
     // Enviar historial de mensajes al widget para que el usuario vea su conversación anterior
     try {
-      const Contact = require('./src/models/Contact');
-      const Conversation = require('./src/models/Conversation');
-      const Message = require('./src/models/Message');
-      const Client = require('./src/models/Client');
-
       let contact = null;
       if (data.visitor_id) contact = await Contact.findByPhone(data.visitor_id);
       if (!contact && data.email) contact = await Contact.findByEmail(data.email);
@@ -139,6 +144,8 @@ io.on('connection', (socket) => {
   // Mensaje recibido del visitante vía WebSocket
   socket.on('webchat_message', async (data) => {
     try {
+      if (!data || !data.text || !String(data.text).trim()) return;
+
       const ctx = socket.userContext || {};
       const { text } = data;
 
@@ -147,6 +154,8 @@ io.on('connection', (socket) => {
       const visitorId = data.visitor_id || ctx.visitor_id;
       const system = data.system || ctx.system;
       const role = data.role || ctx.role;
+
+      if (!visitorId) return;
 
       const notes = system
         ? `Origen: ${system}${role ? ' | Rol: ' + role : ''}`
