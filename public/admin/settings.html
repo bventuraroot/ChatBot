@@ -195,12 +195,18 @@
                 <option value="openai">OpenAI (ChatGPT GPT-3.5/GPT-4)</option>
                 <option value="gemini">Google Gemini AI</option>
                 <option value="opencode">OpenCode Zen (modelos gratis)</option>
+                <option value="custom">Custom (cualquier API OpenAI-compatible)</option>
               </select>
             </div>
 
             <div class="form-group" style="width: 100%;">
               <label class="form-label">OpenAI API Key</label>
               <input type="password" id="setting-OPENAI_API_KEY" class="form-control" placeholder="sk-...">
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Modelo OpenAI</label>
+              <input type="text" id="setting-OPENAI_MODEL" class="form-control" placeholder="gpt-3.5-turbo">
             </div>
 
             <div class="form-group" style="width: 100%;">
@@ -228,6 +234,28 @@
               <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
                 Los modelos <strong>Free</strong> no cuestan nada con tu suscripción.
               </p>
+            </div>
+
+            <hr style="border: none; border-top: 1px solid var(--border-color); margin: 20px 0;">
+
+            <h3 style="font-size: 1rem; margin-bottom: 10px;">🔧 Custom — cualquier API compatible con OpenAI</h3>
+            <p style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 15px;">
+              Para OpenRouter, Groq, DeepSeek oficial, Azure, Ollama local, LM Studio, etc.
+            </p>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">API URL (endpoint chat/completions)</label>
+              <input type="text" id="setting-CUSTOM_API_URL" class="form-control" placeholder="https://openrouter.ai/api/v1/chat/completions">
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">API Key</label>
+              <input type="password" id="setting-CUSTOM_API_KEY" class="form-control" placeholder="Tu API key del proveedor">
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Modelo</label>
+              <input type="text" id="setting-CUSTOM_MODEL" class="form-control" placeholder="ej: anthropic/claude-3.5-sonnet, deepseek-chat, llama3">
             </div>
 
             <div class="form-group" style="width: 100%;">

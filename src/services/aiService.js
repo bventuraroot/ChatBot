@@ -32,22 +32,30 @@ class AIService {
       return await AIService.callGemini(fullSystemPrompt, userMessage, conversationHistory);
     } else if (provider === 'opencode') {
       return await AIService.callOpenCode(fullSystemPrompt, userMessage, conversationHistory);
+    } else if (provider === 'custom') {
+      return await AIService.callCustom(fullSystemPrompt, userMessage, conversationHistory);
     }
 
     // Sin IA configurada -> Fallback
     return null;
   }
 
-  static async callOpenAI(systemPrompt, userMessage, history = []) {
-    const apiKey = await Setting.get('OPENAI_API_KEY');
-    if (!apiKey) return null;
+  // Método genérico para cualquier API compatible con OpenAI (OpenRouter,
+  // Groq, DeepSeek, Azure, Ollama, LM Studio, etc.). Reutilizado por
+  // openai, opencode y custom.
+  static async callOpenAICompatible({ apiUrl, apiKey, model, systemPrompt, userMessage, history = [], label = 'IA' }) {
+    if (!apiUrl || !apiKey || !model) {
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log(`⚠️ ${label}: faltan apiUrl, apiKey o model`);
+      }
+      return null;
+    }
 
     try {
       const messages = [{ role: 'system', content: systemPrompt }];
 
       // Agregar últimos mensajes de contexto. El historial ya incluye el
-      // mensaje actual del usuario (se guarda antes de llamar a la IA),
-      // así que evitamos duplicarlo al final.
+      // mensaje actual del usuario, así que evitamos duplicarlo al final.
       const lastCustomerMsg = [...history].reverse().find(m => m.sender_type === 'customer');
       const historyForPrompt = (lastCustomerMsg && lastCustomerMsg.text === userMessage)
         ? history.slice(0, -1).slice(-6)
@@ -63,61 +71,9 @@ class AIService {
       messages.push({ role: 'user', content: userMessage });
 
       const response = await axios.post(
-        'https://api.openai.com/v1/chat/completions',
+        apiUrl,
         {
-          model: 'gpt-3.5-turbo',
-          messages,
-          temperature: 0.7,
-          max_tokens: 350
-        },
-        {
-          headers: {
-            Authorization: `Bearer ${apiKey}`,
-            'Content-Type': 'application/json'
-          },
-          timeout: 30000
-        }
-      );
-
-      return response.data.choices[0]?.message?.content?.trim() || null;
-    } catch (error) {
-      console.error('❌ Error en OpenAI API:', error.response?.data || error.message);
-      return null;
-    }
-  }
-
-  // OpenCode Zen/Go: gateway OpenAI-compatible con modelos gratuitos
-  // https://opencode.ai/zen  →  endpoint: https://opencode.ai/zen/v1/chat/completions
-  static async callOpenCode(systemPrompt, userMessage, history = []) {
-    const apiKey = await Setting.get('OPENCODE_API_KEY');
-    if (!apiKey) return null;
-
-    // Modelo configurable; por defecto el gratuito de DeepSeek V4 Flash.
-    // El ID se usa SIN prefijo (ej: 'deepseek-v4-flash-free'), tal como lo
-    // acepta la API de Zen.
-    const model = (await Setting.get('OPENCODE_MODEL', 'deepseek-v4-flash-free')).toLowerCase();
-    const modelId = model.startsWith('opencode/') ? model.replace('opencode/', '') : model;
-    try {
-      const messages = [{ role: 'system', content: systemPrompt }];
-
-      const lastCustomerMsg = [...history].reverse().find(m => m.sender_type === 'customer');
-      const historyForPrompt = (lastCustomerMsg && lastCustomerMsg.text === userMessage)
-        ? history.slice(0, -1).slice(-6)
-        : history.slice(-6);
-
-      historyForPrompt.forEach((msg) => {
-        messages.push({
-          role: msg.sender_type === 'customer' ? 'user' : 'assistant',
-          content: msg.text || ''
-        });
-      });
-
-      messages.push({ role: 'user', content: userMessage });
-
-      const response = await axios.post(
-        'https://opencode.ai/zen/v1/chat/completions',
-        {
-          model: modelId,
+          model,
           messages,
           temperature: 0.7,
           max_tokens: 350
@@ -132,15 +88,56 @@ class AIService {
       );
 
       const msg = response.data.choices[0]?.message || {};
-      // Solo usamos el campo `content`. Los campos `reasoning` /
-      // `reasoning_content` son el pensamiento interno del modelo, NO la
-      // respuesta al cliente (modelos como mimo-v2.5-free los devuelven).
+      // Solo usamos `content`. Los campos `reasoning`/`reasoning_content`
+      // son el pensamiento interno del modelo, NO la respuesta al cliente.
       const aiText = (msg.content || '').trim();
       return aiText || null;
     } catch (error) {
-      console.error('❌ Error en OpenCode Zen API:', error.response?.data || error.message);
+      console.error(`❌ Error en ${label}:`, error.response?.data || error.message);
       return null;
     }
+  }
+
+  static async callOpenAI(systemPrompt, userMessage, history = []) {
+    return await AIService.callOpenAICompatible({
+      apiUrl: 'https://api.openai.com/v1/chat/completions',
+      apiKey: await Setting.get('OPENAI_API_KEY'),
+      model: await Setting.get('OPENAI_MODEL', 'gpt-3.5-turbo'),
+      systemPrompt,
+      userMessage,
+      history,
+      label: 'OpenAI API'
+    });
+  }
+
+  // OpenCode Zen/Go: gateway OpenAI-compatible con modelos gratuitos
+  // https://opencode.ai/zen  →  endpoint: https://opencode.ai/zen/v1/chat/completions
+  static async callOpenCode(systemPrompt, userMessage, history = []) {
+    const model = (await Setting.get('OPENCODE_MODEL', 'deepseek-v4-flash-free')).toLowerCase();
+    const modelId = model.startsWith('opencode/') ? model.replace('opencode/', '') : model;
+    return await AIService.callOpenAICompatible({
+      apiUrl: 'https://opencode.ai/zen/v1/chat/completions',
+      apiKey: await Setting.get('OPENCODE_API_KEY'),
+      model: modelId,
+      systemPrompt,
+      userMessage,
+      history,
+      label: 'OpenCode Zen API'
+    });
+  }
+
+  // Proveedor CUSTOM: cualquier endpoint OpenAI-compatible
+  // (OpenRouter, Groq, DeepSeek oficial, Azure, Ollama local, etc.)
+  static async callCustom(systemPrompt, userMessage, history = []) {
+    return await AIService.callOpenAICompatible({
+      apiUrl: await Setting.get('CUSTOM_API_URL', 'https://openrouter.ai/api/v1/chat/completions'),
+      apiKey: await Setting.get('CUSTOM_API_KEY'),
+      model: await Setting.get('CUSTOM_MODEL'),
+      systemPrompt,
+      userMessage,
+      history,
+      label: 'API Custom'
+    });
   }
 
   static async callGemini(systemPrompt, userMessage, history = []) {
