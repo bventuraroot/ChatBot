@@ -86,6 +86,23 @@ class MessageService {
 
     // 8. Buscar respuesta inteligente (FAQ mejorado + API externa)
     const history = await Message.getByConversation(conversation.id, { limit: 10 });
+
+    // 8a. Detección directa de petición de humano. Si el cliente pide un
+    // agente/asesor/persona real, escalar SIEMPRE (sin depender de la IA),
+    // avisar por WhatsApp y asignar la conversación.
+    if (MessageService.wantsHumanIntent(text)) {
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log(`🔔 Detección de humano: "${text}"`);
+      }
+      const transferText = await Setting.get(
+        'HUMAN_TRANSFER_MESSAGE',
+        '¡Claro! Te conectaré con un agente humano. Un momento por favor.'
+      );
+      await MessageService.sendBotResponse(conversation, contact, transferText);
+      await MessageService.escalateToHuman(conversation, contact, text);
+      return customerMsg;
+    }
+
     if (process.env.DEBUG_LOGS === 'true') {
       console.log(`🤖 Dentro de horario, bot activo. Buscando respuesta para: "${text}"`);
     }
@@ -110,6 +127,23 @@ class MessageService {
     }
 
     return customerMsg;
+  }
+
+  // Detecta si el mensaje del cliente pide atención humana (agente, asesor,
+  // persona real, etc.) con frases y palabras clave.
+  static wantsHumanIntent(text) {
+    if (!text) return false;
+    const t = text.toLowerCase();
+    const phrases = [
+      'agente', 'asesor', 'humano', 'persona real', 'persona física',
+      'alguien real', 'hablar con alguien', 'quiero hablar con',
+      'necesito hablar con', 'me atiendas', 'me atienda',
+      'atención personal', 'ayuda humana', 'un agente', 'con un asesor',
+      'representante', 'ejecutivo', 'transferencia a un agente',
+      'transferir', 'persona que', 'que me atienda', 'un humano',
+      'atención de una persona', 'hablar con una persona'
+    ];
+    return phrases.some(p => t.includes(p));
   }
 
   static async sendBotResponse(conversation, contact, text) {
