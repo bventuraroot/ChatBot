@@ -71,7 +71,13 @@
     document.body.appendChild(container);
 
     // ── Socket.IO ──────────────────────────────────────────────────
-    const socket = io(serverUrl);
+    const socket = io(serverUrl, {
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
+      timeout: 15000
+    });
     let isClosed = false;
 
     socket.on('connect', () => {

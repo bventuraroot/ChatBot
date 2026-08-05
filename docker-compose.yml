@@ -42,7 +42,10 @@ services:
     # El código se monta desde el repo (no dentro de la imagen), así los
     # cambios de `git pull` se reflejan sin reconstruir la imagen.
     # node_modules SIEMPRE es el de la imagen (compilado para alpine).
-    command: sh -c "node database/seed.js && node --watch server.js"
+    # Modo producción estable: sin --watch (que reinicia y corta WebSockets).
+    # Tras hacer git pull, reinicia el contenedor manualmente:
+    #   docker compose restart chatbot-hub
+    command: sh -c "node database/seed.js && node server.js"
     volumes:
       # Persistir la base de datos SQLite fuera del contenedor
       - chatbot_data:/app/data
