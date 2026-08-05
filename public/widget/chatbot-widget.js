@@ -250,63 +250,68 @@
     bugCancel.addEventListener('click', closeBugModal);
 
     bugSend.addEventListener('click', () => {
-      const description = bugDesc.value.trim();
-      if (!description) {
-        bugDesc.style.borderColor = '#ef4444';
-        setTimeout(() => bugDesc.style.borderColor = '#334155', 2000);
-        return;
-      }
-
-      const bugReport = [
-        '🐛 *REPORTE DE BUG*',
-        '',
-        `📍 *URL:* ${window.location.href}`,
-        `📄 *Página:* ${pageTitle || 'Sin título'}`,
-        `📏 *Pantalla:* ${window.innerWidth}x${window.innerHeight}`,
-        `🌐 *Navegador:* ${navigator.userAgent.substring(0, 80)}`,
-        `📅 *Fecha:* ${new Date().toLocaleString()}`,
-        '',
-        `📝 *Descripción:* ${description}`,
-      ];
-
-      if (pageErrors.length > 0) {
-        bugReport.push('');
-        bugReport.push('⚠️ *Errores JS detectados:*');
-        pageErrors.forEach((err, i) => {
-          bugReport.push(`  ${i+1}. ${err.message}`);
-          bugReport.push(`     → ${err.source}:${err.line}:${err.col}`);
-        });
-      }
-
-      const bugText = bugReport.join('\n');
-
-      // Enviar por WebSocket
-      socket.emit('webchat_message', {
-        visitor_id: visitorId,
-        name: userName,
-        email: userEmail,
-        role: userRole,
-        system: systemName,
-        client_id: clientId,
-        text: bugText,
-        page_url: pageUrl,
-        page_title: pageTitle,
-        metadata: {
-          type: 'bug_report',
-          page_url: window.location.href,
-          page_title: pageTitle,
-          errors: pageErrors,
-          user_agent: navigator.userAgent,
-          screen_size: `${window.innerWidth}x${window.innerHeight}`
+      try {
+        const description = bugDesc.value.trim();
+        if (!description) {
+          bugDesc.style.borderColor = '#ef4444';
+          setTimeout(() => bugDesc.style.borderColor = '#334155', 2000);
+          return;
         }
-      });
 
-      // Mostrar confirmación en el chat
-      appendMsg('🐛 Reporte de bug enviado. ¡Gracias! Un agente lo revisará pronto.', 'bot');
+        const bugReport = [
+          '🐛 *REPORTE DE BUG*',
+          '',
+          `📍 *URL:* ${window.location.href}`,
+          `📄 *Página:* ${pageTitle || 'Sin título'}`,
+          `📏 *Pantalla:* ${window.innerWidth}x${window.innerHeight}`,
+          `🌐 *Navegador:* ${navigator.userAgent.substring(0, 80)}`,
+          `📅 *Fecha:* ${new Date().toLocaleString()}`,
+          '',
+          `📝 *Descripción:* ${description}`,
+        ];
 
-      // Abrir el widget para que vea el historial
-      openWidget();
+        if (pageErrors.length > 0) {
+          bugReport.push('');
+          bugReport.push('⚠️ *Errores JS detectados:*');
+          pageErrors.forEach((err, i) => {
+            bugReport.push(`  ${i+1}. ${err.message}`);
+            bugReport.push(`     → ${err.source}:${err.line}:${err.col}`);
+          });
+        }
 
+        const bugText = bugReport.join('\n');
+
+        // Enviar por WebSocket
+        socket.emit('webchat_message', {
+          visitor_id: visitorId,
+          name: userName,
+          email: userEmail,
+          role: userRole,
+          system: systemName,
+          client_id: clientId,
+          text: bugText,
+          page_url: pageUrl,
+          page_title: pageTitle,
+          metadata: {
+            type: 'bug_report',
+            page_url: window.location.href,
+            page_title: pageTitle,
+            errors: pageErrors,
+            user_agent: navigator.userAgent,
+            screen_size: `${window.innerWidth}x${window.innerHeight}`
+          }
+        });
+
+        // Mostrar confirmación en el chat
+        appendMsg('🐛 Reporte de bug enviado. ¡Gracias! Un agente lo revisará pronto.', 'bot');
+
+        // Abrir el widget para que vea el historial
+        openWidget();
+      } catch (e) {
+        console.error('Error al enviar reporte:', e);
+      }
+
+      // Siempre cerrar el modal
       closeBugModal();
     });
 

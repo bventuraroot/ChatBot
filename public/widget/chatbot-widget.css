@@ -24,8 +24,8 @@
 
 #cb-bug-report-btn {
   position: fixed;
-  bottom: 90px;
-  right: 25px;
+  bottom: 30px;
+  left: 25px;
   width: 44px;
   height: 44px;
   border-radius: 50%;
@@ -267,8 +267,8 @@
   }
 
   #cb-bug-report-btn {
-    bottom: 84px;
-    right: 20px;
+    bottom: 24px;
+    left: 16px;
     width: 40px;
     height: 40px;
     font-size: 20px;
