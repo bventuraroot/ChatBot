@@ -132,7 +132,11 @@ class AIService {
         }
       );
 
-      return response.data.choices[0]?.message?.content?.trim() || null;
+      const msg = response.data.choices[0]?.message || {};
+      // Algunos modelos (ej: mimo-v2.5-free) devuelven la respuesta en el
+      // campo `reasoning` en lugar de `content`. Intentamos ambos.
+      const aiText = (msg.content || msg.reasoning || msg.reasoning_content || '').trim();
+      return aiText || null;
     } catch (error) {
       console.error('❌ Error en OpenCode Zen API:', error.response?.data || error.message);
       return null;
