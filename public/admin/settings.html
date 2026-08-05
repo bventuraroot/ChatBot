@@ -263,6 +263,20 @@
               <textarea id="setting-AI_SYSTEM_PROMPT" class="form-control" rows="5"></textarea>
             </div>
 
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Largo máximo de la respuesta (tokens)</label>
+              <select id="setting-AI_MAX_TOKENS" class="form-control">
+                <option value="150">Corta (150)</option>
+                <option value="350">Normal (350)</option>
+                <option value="800">Larga (800)</option>
+                <option value="1200">Muy larga (1200)</option>
+                <option value="2000">Extensa (2000)</option>
+              </select>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                Más tokens = respuestas más amplias y detalladas. Ojo: algunos modelos gratis tienen límite.
+              </p>
+            </div>
+
             <button class="btn btn-accent" onclick="saveSettings()">Guardar Ajustes de IA</button>
           </div>
         </div>

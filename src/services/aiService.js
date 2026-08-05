@@ -3,7 +3,7 @@ const Setting = require('../models/Setting');
 const KnowledgeItem = require('../models/KnowledgeItem');
 
 class AIService {
-  static async generateResponse(userMessage, conversationHistory = [], clientId = null) {
+  static async generateResponse(userMessage, conversationHistory = [], clientId = null, externalContext = null) {
     const provider = (await Setting.get('AI_PROVIDER', 'none')).toLowerCase();
     if (!provider || provider === 'none') {
       return null;
@@ -13,6 +13,9 @@ class AIService {
       'AI_SYSTEM_PROMPT',
       'Eres un asistente virtual amable y profesional. Respondes preguntas sobre nuestros servicios.'
     );
+
+    // Límite de tokens configurable (respuestas más amplias o más cortas)
+    const maxTokens = parseInt(await Setting.get('AI_MAX_TOKENS', '350'), 10) || 350;
 
     // Obtener contenido de la base de conocimiento (cliente + global) para enriquecer el prompt
     const faqs = await KnowledgeItem.getAll({ activeOnly: true, clientId });
@@ -24,16 +27,23 @@ class AIService {
       });
     }
 
-    const fullSystemPrompt = `${systemPrompt}${contextText}\n\nResponde de manera concisa, clara y profesional en español. Si el usuario pide hablar con un agente o persona real, responde amablemente que lo conectarás con un agente humano.`;
+    // Datos obtenidos de la API externa / BD del cliente (si los hay)
+    // para que la IA responda con información REAL y actualizada.
+    let externalText = '';
+    if (externalContext) {
+      externalText = `\n\nDatos actuales del sistema del cliente obtenidos en tiempo real (usa estos datos para responder con precisión):\n${externalContext}\n`;
+    }
+
+    const fullSystemPrompt = `${systemPrompt}${contextText}${externalText}\n\nResponde de manera concisa, clara y profesional en español. Si el usuario pide hablar con un agente o persona real, responde amablemente que lo conectarás con un agente humano.`;
 
     if (provider === 'openai') {
-      return await AIService.callOpenAI(fullSystemPrompt, userMessage, conversationHistory);
+      return await AIService.callOpenAI(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
     } else if (provider === 'gemini') {
-      return await AIService.callGemini(fullSystemPrompt, userMessage, conversationHistory);
+      return await AIService.callGemini(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
     } else if (provider === 'opencode') {
-      return await AIService.callOpenCode(fullSystemPrompt, userMessage, conversationHistory);
+      return await AIService.callOpenCode(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
     } else if (provider === 'custom') {
-      return await AIService.callCustom(fullSystemPrompt, userMessage, conversationHistory);
+      return await AIService.callCustom(fullSystemPrompt, userMessage, conversationHistory, maxTokens);
     }
 
     // Sin IA configurada -> Fallback
@@ -43,7 +53,7 @@ class AIService {
   // Método genérico para cualquier API compatible con OpenAI (OpenRouter,
   // Groq, DeepSeek, Azure, Ollama, LM Studio, etc.). Reutilizado por
   // openai, opencode y custom.
-  static async callOpenAICompatible({ apiUrl, apiKey, model, systemPrompt, userMessage, history = [], label = 'IA' }) {
+  static async callOpenAICompatible({ apiUrl, apiKey, model, systemPrompt, userMessage, history = [], label = 'IA', maxTokens = 350 }) {
     if (!apiUrl || !apiKey || !model) {
       if (process.env.DEBUG_LOGS === 'true') {
         console.log(`⚠️ ${label}: faltan apiUrl, apiKey o model`);
@@ -76,7 +86,7 @@ class AIService {
           model,
           messages,
           temperature: 0.7,
-          max_tokens: 350
+          max_tokens: maxTokens
         },
         {
           headers: {
@@ -98,7 +108,7 @@ class AIService {
     }
   }
 
-  static async callOpenAI(systemPrompt, userMessage, history = []) {
+  static async callOpenAI(systemPrompt, userMessage, history = [], maxTokens = 350) {
     return await AIService.callOpenAICompatible({
       apiUrl: 'https://api.openai.com/v1/chat/completions',
       apiKey: await Setting.get('OPENAI_API_KEY'),
@@ -106,13 +116,14 @@ class AIService {
       systemPrompt,
       userMessage,
       history,
-      label: 'OpenAI API'
+      label: 'OpenAI API',
+      maxTokens
     });
   }
 
   // OpenCode Zen/Go: gateway OpenAI-compatible con modelos gratuitos
   // https://opencode.ai/zen  →  endpoint: https://opencode.ai/zen/v1/chat/completions
-  static async callOpenCode(systemPrompt, userMessage, history = []) {
+  static async callOpenCode(systemPrompt, userMessage, history = [], maxTokens = 350) {
     const model = (await Setting.get('OPENCODE_MODEL', 'deepseek-v4-flash-free')).toLowerCase();
     const modelId = model.startsWith('opencode/') ? model.replace('opencode/', '') : model;
     return await AIService.callOpenAICompatible({
@@ -122,13 +133,14 @@ class AIService {
       systemPrompt,
       userMessage,
       history,
-      label: 'OpenCode Zen API'
+      label: 'OpenCode Zen API',
+      maxTokens
     });
   }
 
   // Proveedor CUSTOM: cualquier endpoint OpenAI-compatible
   // (OpenRouter, Groq, DeepSeek oficial, Azure, Ollama local, etc.)
-  static async callCustom(systemPrompt, userMessage, history = []) {
+  static async callCustom(systemPrompt, userMessage, history = [], maxTokens = 350) {
     return await AIService.callOpenAICompatible({
       apiUrl: await Setting.get('CUSTOM_API_URL', 'https://openrouter.ai/api/v1/chat/completions'),
       apiKey: await Setting.get('CUSTOM_API_KEY'),
@@ -136,11 +148,12 @@ class AIService {
       systemPrompt,
       userMessage,
       history,
-      label: 'API Custom'
+      label: 'API Custom',
+      maxTokens
     });
   }
 
-  static async callGemini(systemPrompt, userMessage, history = []) {
+  static async callGemini(systemPrompt, userMessage, history = [], maxTokens = 350) {
     const apiKey = await Setting.get('GEMINI_API_KEY');
     if (!apiKey) return null;
 
@@ -167,7 +180,7 @@ class AIService {
 
       const response = await axios.post(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
-        { contents },
+        { contents, generationConfig: { maxOutputTokens: maxTokens } },
         {
           headers: { 'Content-Type': 'application/json' },
           timeout: 30000

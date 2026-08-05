@@ -17,16 +17,30 @@ class DynamicResponseEngine {
       };
     }
 
-    // 2. Llamar a la API externa del cliente (si está configurada)
+    // 2. Llamar a la API externa / BD del cliente (si está configurada).
+    //    Si devuelve una respuesta directa se usa tal cual; si devuelve
+    //    datos (context), se pasan a la IA para que responda con info real.
+    let externalContext = null;
     if (clientId) {
-      const apiResponse = await DynamicResponseEngine.callExternalAPI(
+      const apiResult = await DynamicResponseEngine.callExternalAPI(
         clientId, text, contact, history
       );
-      if (apiResponse) {
-        return {
-          source: 'external_api',
-          answer: DynamicResponseEngine.renderTemplate(apiResponse, contact)
-        };
+      if (apiResult) {
+        // Si la API devolvió un texto de respuesta listo (reply/message),
+        // lo usamos directamente. Si devolvió datos en 'data', lo pasamos
+        // como contexto para que la IA redacte la respuesta.
+        if (apiResult.reply || apiResult.message) {
+          return {
+            source: 'external_api',
+            answer: DynamicResponseEngine.renderTemplate(apiResult.reply || apiResult.message, contact)
+          };
+        }
+        if (apiResult.data || apiResult.context) {
+          const raw = apiResult.data || apiResult.context;
+          externalContext = typeof raw === 'string'
+            ? raw
+            : JSON.stringify(raw, null, 2).slice(0, 4000);
+        }
       }
     }
 
@@ -34,7 +48,7 @@ class DynamicResponseEngine {
     if (process.env.DEBUG_LOGS === 'true') {
       console.log(`🤖 Buscando respuesta IA para: "${text}"`);
     }
-    const aiAnswer = await AIService.generateResponse(text, history, clientId);
+    const aiAnswer = await AIService.generateResponse(text, history, clientId, externalContext);
     if (aiAnswer) {
       if (process.env.DEBUG_LOGS === 'true') {
         console.log(`🤖 IA respondió (source=ai): "${aiAnswer.slice(0, 80)}"`);
@@ -148,16 +162,21 @@ class DynamicResponseEngine {
         timeout: client.external_api_timeout || 5000
       });
 
-      // El endpoint externo debe devolver: { "reply": "texto de respuesta" }
-      // O simplemente un string
-      if (typeof response.data === 'string') {
-        return response.data;
+      // El endpoint externo puede responder de varias formas:
+      // 1) { "reply": "texto" } o { "message": "texto" } → respuesta lista
+      // 2) { "data": {...} } o { "context": "..." } → datos para que la IA responda
+      // 3) un string → respuesta lista
+      const body = response.data;
+      if (typeof body === 'string') {
+        return { reply: body };
       }
-      if (response.data && response.data.reply) {
-        return response.data.reply;
-      }
-      if (response.data && response.data.message) {
-        return response.data.message;
+      if (body) {
+        if (body.reply || body.message) {
+          return { reply: body.reply || body.message };
+        }
+        if (body.data || body.context) {
+          return { data: body.data || body.context };
+        }
       }
 
       return null;
