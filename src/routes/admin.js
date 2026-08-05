@@ -2,6 +2,9 @@ const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
 const QRCode = require('qrcode');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 const { authenticateToken, JWT_SECRET } = require('../middleware/auth');
 const rateLimiter = require('../middleware/rateLimiter');
 const User = require('../models/User');
@@ -17,6 +20,31 @@ const MessageService = require('../services/messageService');
 const { dbAsync } = require('../../database/database');
 
 const loginLimiter = rateLimiter({ windowMs: 60 * 1000, max: 10 });
+
+// Configuración de subida de archivos (capturas/imágenes del agente)
+const uploadsDir = path.join(__dirname, '..', '..', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, uploadsDir),
+  filename: (req, file, cb) => {
+    const safe = file.originalname.replace(/[^a-zA-Z0-9.\-_]/g, '_');
+    cb(null, `${Date.now()}_${safe}`);
+  }
+});
+
+const fileFilter = (req, file, cb) => {
+  const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf'];
+  if (allowed.includes(file.mimetype)) {
+    cb(null, true);
+  } else {
+    cb(new Error('Formato de archivo no permitido'));
+  }
+};
+
+const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
 
 // Login de usuario admin/agente
 router.post('/login', loginLimiter, async (req, res) => {
@@ -136,6 +164,42 @@ router.get('/me', (req, res) => {
   res.json({ user: req.user });
 });
 
+// PUT /admin/me — Actualizar perfil del agente (nombre, email, avatar)
+router.put('/me', async (req, res) => {
+  try {
+    const { name, email, avatar } = req.body;
+    const user = await User.update(req.user.id, { name, email, avatar });
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /admin/me/avatar — Subir foto de perfil del agente
+router.post('/me/avatar', upload.single('avatar'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No se recibió ninguna imagen' });
+    const avatarUrl = `/uploads/${req.file.filename}`;
+    const user = await User.update(req.user.id, { avatar: avatarUrl });
+    res.json({ user, avatar: avatarUrl });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /admin/upload — Subir captura/imagen para enviar en el chat
+router.post('/upload', upload.single('file'), (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
+    res.json({
+      url: `/uploads/${req.file.filename}`,
+      media_type: req.file.mimetype.startsWith('image/') ? 'image' : 'document'
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // GET /admin/stats — Estadísticas para el Dashboard
 router.get('/stats', async (req, res) => {
   try {
@@ -192,10 +256,12 @@ router.get('/conversations/:id/messages', async (req, res) => {
 // POST /admin/conversations/:id/messages — Responder desde la bandeja de entrada
 router.post('/conversations/:id/messages', async (req, res) => {
   try {
-    const { text, media_url } = req.body;
-    if (!text) return res.status(400).json({ error: 'El texto del mensaje es requerido' });
+    const { text, media_url, media_type } = req.body;
+    if (!text && !media_url) {
+      return res.status(400).json({ error: 'Debes escribir un mensaje o adjuntar una imagen' });
+    }
 
-    const message = await MessageService.sendAgentMessage(req.params.id, req.user.id, text, media_url);
+    const message = await MessageService.sendAgentMessage(req.params.id, req.user.id, text || '', media_url, media_type);
     res.json({ success: true, message });
   } catch (err) {
     res.status(500).json({ error: err.message });

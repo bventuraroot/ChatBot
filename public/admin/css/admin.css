@@ -449,6 +449,31 @@ tr:last-child td { border-bottom: none; }
   border-bottom-right-radius: 2px;
 }
 
+.msg-image {
+  max-width: 240px;
+  max-height: 240px;
+  border-radius: 8px;
+  display: block;
+  margin: 6px 0;
+  cursor: pointer;
+}
+
+.msg-doc {
+  display: inline-block;
+  margin: 6px 0;
+  color: inherit;
+  text-decoration: underline;
+}
+
+.msg-agent-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  object-fit: cover;
+  vertical-align: middle;
+  margin-right: 5px;
+}
+
 .msg-time {
   font-size: 0.65rem;
   opacity: 0.7;
@@ -463,4 +488,24 @@ tr:last-child td { border-bottom: none; }
   border-top: 1px solid var(--border-color);
   display: flex;
   gap: 12px;
+}
+
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-lg);
+  padding: 25px;
+  width: 90%;
+  max-width: 480px;
+  color: var(--text-main);
 }

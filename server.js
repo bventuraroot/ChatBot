@@ -91,6 +91,18 @@ app.use(express.static(path.join(__dirname, 'public'), {
   }
 }));
 
+// Servir archivos subidos (capturas/imágenes del chat y avatares de agentes)
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!require('fs').existsSync(uploadsDir)) {
+  require('fs').mkdirSync(uploadsDir, { recursive: true });
+}
+app.use('/uploads', express.static(uploadsDir, {
+  setHeaders: (res) => {
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Cross-Origin-Resource-Policy', 'cross-origin');
+  }
+}));
+
 // Exponer io a los routers (para poder emitir desde admin.js)
 app.set('io', io);
 

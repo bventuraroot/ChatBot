@@ -107,6 +107,28 @@
   border-bottom-left-radius: 2px;
 }
 
+.cb-msg-image {
+  max-width: 220px;
+  max-height: 220px;
+  border-radius: 8px;
+  display: block;
+  margin-bottom: 6px;
+  cursor: pointer;
+}
+
+.cb-msg-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+  margin-right: 8px;
+}
+
+.cb-msg-bubble-inner {
+  min-width: 0;
+}
+
 .cb-input-area {
   padding: 12px;
   background: #0f172a;

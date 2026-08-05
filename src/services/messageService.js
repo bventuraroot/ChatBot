@@ -175,7 +175,7 @@ class MessageService {
     }
   }
 
-  static async sendAgentMessage(conversationId, agentId, text, mediaUrl = null) {
+  static async sendAgentMessage(conversationId, agentId, text, mediaUrl = null, mediaType = null) {
     const conversation = await Conversation.findById(conversationId);
     if (!conversation) throw new Error('Conversación no encontrada');
 
@@ -186,7 +186,8 @@ class MessageService {
       sender_type: 'agent',
       sender_id: agentId,
       text,
-      media_url: mediaUrl
+      media_url: mediaUrl,
+      media_type: mediaType || (mediaUrl ? 'image' : null)
     });
 
     // Enviar por canal externo

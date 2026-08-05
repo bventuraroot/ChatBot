@@ -7,7 +7,7 @@ class Message {
 
   static async getByConversation(conversationId, { limit = 100, offset = 0 } = {}) {
     return await dbAsync.all(
-      `SELECT m.*, u.name as agent_name 
+      `SELECT m.*, u.name as agent_name, u.avatar as agent_avatar 
        FROM messages m 
        LEFT JOIN users u ON m.sender_id = u.id 
        WHERE m.conversation_id = ? 

@@ -114,7 +114,7 @@
       // Mostrar historial con separador visual
       appendSystemMsg('— Historial de conversación —');
       data.messages.forEach(msg => {
-        appendMsg(msg.text || '', msg.sender_type, msg.created_at);
+        appendMsg(msg.text || '', msg.sender_type, msg.created_at, msg);
       });
 
       // Si la conversación estaba cerrada, mostrar aviso
@@ -136,7 +136,7 @@
     socket.on('new_message', (data) => {
       if (!data || !data.message || data.message.sender_type === 'customer') return;
       if (myConversationId && data.conversation_id !== myConversationId) return;
-      appendMsg(data.message.text, data.message.sender_type);
+      appendMsg(data.message.text, data.message.sender_type, data.message.created_at, data.message);
       openWidget();
     });
 
@@ -237,20 +237,67 @@
     });
   }
 
-  function appendMsg(text, senderType, timestamp) {
+  function appendMsg(text, senderType, timestamp, extra) {
     const box = document.getElementById('cb-messages-box');
     if (!box) return;
     const div = document.createElement('div');
     const type = senderType === 'customer' ? 'customer' : 'bot';
     div.className = `cb-msg cb-msg-${type}`;
-    // Escapar HTML para prevenir XSS: los mensajes son texto plano
-    div.textContent = text || '';
-    if (timestamp) {
-      const ts = document.createElement('div');
-      ts.className = 'cb-msg-time';
-      ts.textContent = formatTime(timestamp);
-      div.appendChild(ts);
+
+    // Avatar del agente (si el mensaje lo incluye)
+    if (extra && extra.agent_avatar && senderType !== 'customer') {
+      const avatar = document.createElement('img');
+      avatar.className = 'cb-msg-avatar';
+      avatar.src = extra.agent_avatar;
+      avatar.alt = 'Agente';
+      avatar.onerror = function () { this.style.display = 'none'; };
+      div.appendChild(avatar);
+      const bubble = document.createElement('div');
+      bubble.className = 'cb-msg-bubble-inner';
+      // Contenido: imagen o texto
+      if (extra.media_url && extra.media_type === 'image') {
+        const img = document.createElement('img');
+        img.className = 'cb-msg-image';
+        img.src = extra.media_url;
+        img.alt = 'Captura';
+        img.onclick = function () { window.open(extra.media_url, '_blank'); };
+        bubble.appendChild(img);
+      }
+      if (text) {
+        const p = document.createElement('div');
+        p.textContent = text;
+        bubble.appendChild(p);
+      }
+      if (timestamp) {
+        const ts = document.createElement('div');
+        ts.className = 'cb-msg-time';
+        ts.textContent = formatTime(timestamp);
+        bubble.appendChild(ts);
+      }
+      div.appendChild(bubble);
+    } else {
+      // Mensaje normal (texto y/o imagen)
+      if (extra && extra.media_url && extra.media_type === 'image') {
+        const img = document.createElement('img');
+        img.className = 'cb-msg-image';
+        img.src = extra.media_url;
+        img.alt = 'Captura';
+        img.onclick = function () { window.open(extra.media_url, '_blank'); };
+        div.appendChild(img);
+      }
+      if (text) {
+        const p = document.createElement('div');
+        p.textContent = text;
+        div.appendChild(p);
+      }
+      if (timestamp) {
+        const ts = document.createElement('div');
+        ts.className = 'cb-msg-time';
+        ts.textContent = formatTime(timestamp);
+        div.appendChild(ts);
+      }
     }
+
     box.appendChild(div);
     scrollChat();
   }
