@@ -4,6 +4,7 @@
 # Levanta todos los servicios necesarios:
 #   1. chatbot-hub  (Tu app Node.js principal)
 #   2. evolution-api (WhatsApp no oficial por QR — OPCIONAL)
+#      + evolution-postgres y evolution-redis (dependencias de Evolution API v2)
 #
 # USO:
 #   docker compose up -d                                  → Solo ChatBot Hub
@@ -49,6 +50,7 @@ services:
   # ============================================
   # 2. Evolution API — WhatsApp No Oficial (QR)
   #    Solo se levanta con:  docker compose --profile whatsapp-qr up -d
+  #    Requiere PostgreSQL + Redis (v2.x ya no soporta SQLite)
   # ============================================
   evolution-api:
     image: evoapicloud/evolution-api:v2.2.3
@@ -58,27 +60,62 @@ services:
       - whatsapp-qr
     ports:
       - "8081:8080"
+    depends_on:
+      - evolution-postgres
+      - evolution-redis
     environment:
       - AUTHENTICATION_API_KEY=${EVOLUTION_API_KEY:-chatbot_evolution_key_2026}
-      # Base de datos SQLite (sin PostgreSQL/Redis necesarios para v2.2.x)
-      - DATABASE_PROVIDER=sqlite
-      - DATABASE_SAVE_DATA_INSTANCE=all
-      - DATABASE_SAVE_DATA_NEW_MESSAGE=all
-      - DATABASE_SAVE_MESSAGE_UPDATE=all
-      - DATABASE_SAVE_DATA_CONTACTS=all
-      - DATABASE_SAVE_DATA_CHATS=all
-      - REDIS_ENABLED=false
-      - CACHE_REDIS_ENABLED=false
+      # Base de datos PostgreSQL
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:evolution@evolution-postgres:5432/evolution_api
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      # Redis
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://evolution-redis:6379
+      - CACHE_REDIS_SAVE_INSTANCES=true
       # Webhook apuntando al contenedor de ChatBot Hub
       - WEBHOOK_GLOBAL_URL=http://chatbot-hub:3000/webhook/whatsapp-evolution
       - WEBHOOK_GLOBAL_ENABLED=true
       - WEBHOOK_EVENTS=MESSAGES_UPSERT
-      # Solo se reciben eventos de mensajes nuevos
-      - WEBHOOK_GLOBAL_BY_EVENTS=false
-      - WEBHOOK_ENABLED=true
     volumes:
       - evolution_instances:/evolution/instances
       - evolution_store:/evolution/store
+    networks:
+      - chatbot-network
+
+  # ============================================
+  # 3. PostgreSQL — Base de datos de Evolution API v2
+  # ============================================
+  evolution-postgres:
+    image: postgres:15-alpine
+    container_name: evolution-postgres
+    restart: unless-stopped
+    profiles:
+      - whatsapp-qr
+    environment:
+      - POSTGRES_DB=evolution_api
+      - POSTGRES_USER=evolution
+      - POSTGRES_PASSWORD=evolution
+    volumes:
+      - evolution_postgres_data:/var/lib/postgresql/data
+    networks:
+      - chatbot-network
+
+  # ============================================
+  # 4. Redis — Cache de Evolution API v2
+  # ============================================
+  evolution-redis:
+    image: redis:7-alpine
+    container_name: evolution-redis
+    restart: unless-stopped
+    profiles:
+      - whatsapp-qr
+    volumes:
+      - evolution_redis_data:/data
     networks:
       - chatbot-network
 
@@ -93,6 +130,10 @@ volumes:
   evolution_instances:
     driver: local
   evolution_store:
+    driver: local
+  evolution_postgres_data:
+    driver: local
+  evolution_redis_data:
     driver: local
 
 # ============================================
