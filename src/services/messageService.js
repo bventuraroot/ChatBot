@@ -51,6 +51,9 @@ class MessageService {
 
     // 5. Verificar si la conversación fue tomada por un humano
     if (conversation.assigned_to && conversation.assigned_to > 0) {
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log(`🚫 Bot no responde: conversación ${conversation.id} asignada a agente (${conversation.assigned_to})`);
+      }
       return customerMsg;
     }
 
@@ -58,11 +61,19 @@ class MessageService {
     const botEnabled = client
       ? client.bot_enabled === 1
       : (await Setting.get('BOT_ENABLED', 'true')) === 'true';
-    if (!botEnabled) return customerMsg;
+    if (!botEnabled) {
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log('🚫 Bot no responde: BOT_ENABLED está en false');
+      }
+      return customerMsg;
+    }
 
     // 7. Verificar horario de atención (global o por cliente)
     const isWithinHours = await MessageService.checkBusinessHours(client);
     if (!isWithinHours) {
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log('🕐 Fuera de horario: respondiendo mensaje de fuera de horas');
+      }
       const outOfHoursText = client && client.out_of_hours_message
         ? client.out_of_hours_message
         : await Setting.get(
@@ -75,6 +86,9 @@ class MessageService {
 
     // 8. Buscar respuesta inteligente (FAQ mejorado + API externa)
     const history = await Message.getByConversation(conversation.id, { limit: 10 });
+    if (process.env.DEBUG_LOGS === 'true') {
+      console.log(`🤖 Dentro de horario, bot activo. Buscando respuesta para: "${text}"`);
+    }
     const response = await DynamicResponseEngine.findResponse(text, resolvedClientId, contact, history);
 
     if (response) {
