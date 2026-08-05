@@ -156,17 +156,23 @@ io.on('connection', (socket) => {
         if (client) clientId = client.id;
       }
 
+      let conversation = null;
       if (contact) {
-        const conversation = await Conversation.findOrCreateForContact(contact.id, 'webchat', clientId);
-        const messages = await Message.getByConversation(conversation.id, { limit: 100 });
-        socket.emit('conversation_history', {
-          conversation_id: conversation.id,
-          status: conversation.status,
-          messages
-        });
+        conversation = await Conversation.findOrCreateForContact(contact.id, 'webchat', clientId);
       }
+
+      const messages = conversation
+        ? await Message.getByConversation(conversation.id, { limit: 100 })
+        : [];
+
+      socket.emit('conversation_history', {
+        conversation_id: conversation ? conversation.id : null,
+        status: conversation ? conversation.status : 'open',
+        messages
+      });
     } catch (err) {
       console.error('Error enviando historial al widget:', err);
+      socket.emit('conversation_history', { conversation_id: null, status: 'open', messages: [] });
     }
   });
 

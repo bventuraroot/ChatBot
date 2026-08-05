@@ -68,7 +68,23 @@ class MessageService {
       return customerMsg;
     }
 
-    // 7. Verificar horario de atención (global o por cliente)
+    // 7. Detección de petición de humano — SIEMPRE抢先 antes del horario.
+    // Si el cliente pide un agente/asesor/persona real, escalar de inmediato
+    // sin importar si estamos dentro o fuera de horario de atención.
+    if (MessageService.wantsHumanIntent(text)) {
+      if (process.env.DEBUG_LOGS === 'true') {
+        console.log(`🔔 Detección de humano: "${text}"`);
+      }
+      const transferText = await Setting.get(
+        'HUMAN_TRANSFER_MESSAGE',
+        '¡Claro! Te conectaré con un agente humano. Un momento por favor.'
+      );
+      await MessageService.sendBotResponse(conversation, contact, transferText);
+      await MessageService.escalateToHuman(conversation, contact, text);
+      return customerMsg;
+    }
+
+    // 8. Verificar horario de atención (global o por cliente)
     const isWithinHours = await MessageService.checkBusinessHours(client);
     if (!isWithinHours) {
       if (process.env.DEBUG_LOGS === 'true') {
@@ -84,24 +100,8 @@ class MessageService {
       return customerMsg;
     }
 
-    // 8. Buscar respuesta inteligente (FAQ mejorado + API externa)
+    // 9. Buscar respuesta inteligente (FAQ mejorado + API externa)
     const history = await Message.getByConversation(conversation.id, { limit: 10 });
-
-    // 8a. Detección directa de petición de humano. Si el cliente pide un
-    // agente/asesor/persona real, escalar SIEMPRE (sin depender de la IA),
-    // avisar por WhatsApp y asignar la conversación.
-    if (MessageService.wantsHumanIntent(text)) {
-      if (process.env.DEBUG_LOGS === 'true') {
-        console.log(`🔔 Detección de humano: "${text}"`);
-      }
-      const transferText = await Setting.get(
-        'HUMAN_TRANSFER_MESSAGE',
-        '¡Claro! Te conectaré con un agente humano. Un momento por favor.'
-      );
-      await MessageService.sendBotResponse(conversation, contact, transferText);
-      await MessageService.escalateToHuman(conversation, contact, text);
-      return customerMsg;
-    }
 
     if (process.env.DEBUG_LOGS === 'true') {
       console.log(`🤖 Dentro de horario, bot activo. Buscando respuesta para: "${text}"`);
@@ -171,7 +171,7 @@ class MessageService {
   // panel, y asigna la conversación al primer usuario admin/agente.
   static async escalateToHuman(conversation, contact, customerText) {
     try {
-      const Setting = require('./models/Setting');
+      const Setting = require('../models/Setting');
 
       const channelName = conversation.channel === 'whatsapp_evolution'
         ? 'WhatsApp (QR)'
@@ -212,7 +212,7 @@ class MessageService {
       }
 
       // 3. Asignar la conversación a un agente (el primer admin disponible)
-      const User = require('./models/User');
+      const User = require('../models/User');
       const users = await User.getAll();
       const agent = users.find(u => u.role === 'admin') || users[0];
       if (agent && !conversation.assigned_to) {

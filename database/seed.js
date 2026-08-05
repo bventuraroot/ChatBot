@@ -158,6 +158,22 @@ async function seed() {
     console.log('📚 Preguntas frecuentes iniciales insertadas (6 globales + 4 de Tienda Online).');
   }
 
+  // Settings por defecto (solo si la tabla está vacía)
+  const settingsCount = await dbAsync.get('SELECT COUNT(*) as count FROM settings');
+  if (settingsCount.count === 0) {
+    const defaultSettings = [
+      ['TIMEZONE', process.env.TIMEZONE || 'America/Mexico_City'],
+      ['BOT_ENABLED', 'true'],
+      ['BUSINESS_HOURS_START', '08:00'],
+      ['BUSINESS_HOURS_END', '17:00'],
+      ['BUSINESS_HOURS_DAYS', '1,2,3,4,5']
+    ];
+    for (const [key, value] of defaultSettings) {
+      await dbAsync.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [key, value]);
+    }
+    console.log('⚙️  Settings por defecto insertados.');
+  }
+
   console.log('✅ Seeding completado exitosamente.');
   process.exit(0);
 }
