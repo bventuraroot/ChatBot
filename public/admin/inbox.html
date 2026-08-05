@@ -52,8 +52,11 @@
             <div>
               <h3 id="chat-contact-name">Selecciona un chat</h3>
               <p id="chat-contact-info" style="font-size: 0.8rem; color: var(--text-muted);"></p>
+              <p id="chat-assignment-info" style="font-size: 0.8rem; margin-top: 4px;"></p>
             </div>
             <div style="display: flex; gap: 10px;">
+              <button id="btn-take-conv" class="btn btn-secondary" onclick="takeConversation()" style="display:none;">🙋 Tomar Conversación</button>
+              <button id="btn-return-to-bot" class="btn btn-secondary" onclick="returnToBot()" style="display:none;">🤖 Devolver al Bot</button>
               <button id="btn-toggle-status" class="btn btn-secondary" onclick="toggleConversationStatus()">Cerrar Chat</button>
             </div>
           </div>
@@ -168,6 +171,7 @@
         if (conv.contact_notes) infoLine += ` | ${conv.contact_notes}`;
 
         document.getElementById('chat-contact-info').textContent = infoLine;
+        updateAssignmentInfo(conv);
 
         const messagesEl = document.getElementById('chat-messages');
         messagesEl.innerHTML = '';
@@ -179,6 +183,62 @@
         scrollChatToBottom();
       } catch (err) {
         console.error('Error cargando chat:', err);
+      }
+    }
+
+    // Muestra botones "Tomar/Devolver" y quién tiene la conversación asignada
+    function updateAssignmentInfo(conv) {
+      const infoEl = document.getElementById('chat-assignment-info');
+      const takeBtn = document.getElementById('btn-take-conv');
+      const returnBtn = document.getElementById('btn-return-to-bot');
+
+      if (conv.assigned_to && conv.assigned_to > 0) {
+        const who = conv.assigned_agent_name ? ` (${conv.assigned_agent_name})` : '';
+        infoEl.textContent = `👤 Conversación tomada por un agente${who} — el bot está en silencio.`;
+        infoEl.style.color = '#f59e0b';
+        takeBtn.style.display = 'none';
+        returnBtn.style.display = 'inline-block';
+      } else {
+        infoEl.textContent = '🤖 Conversación atendida por el bot automáticamente.';
+        infoEl.style.color = '#10b981';
+        takeBtn.style.display = 'inline-block';
+        returnBtn.style.display = 'none';
+      }
+    }
+
+    // El agente toma la conversación (asigna a sí mismo) → el bot se calla
+    async function takeConversation() {
+      if (!activeConversationId) return;
+      const userStr = localStorage.getItem('cb_user');
+      let userId = null;
+      if (userStr) {
+        try { userId = JSON.parse(userStr).id; } catch (e) {}
+      }
+      try {
+        const data = await apiFetch(`/conversations/${activeConversationId}/assign`, {
+          method: 'PUT',
+          body: JSON.stringify({ userId })
+        });
+        updateAssignmentInfo(data.conversation);
+        loadConversations();
+      } catch (err) {
+        alert('Error al tomar conversación: ' + err.message);
+      }
+    }
+
+    // Devuelve la conversación al bot (quita la asignación) → el bot responde
+    async function returnToBot() {
+      if (!activeConversationId) return;
+      if (!confirm('¿Devolver esta conversación al bot? El bot responderá automáticamente.')) return;
+      try {
+        const data = await apiFetch(`/conversations/${activeConversationId}/assign`, {
+          method: 'PUT',
+          body: JSON.stringify({ userId: null })
+        });
+        updateAssignmentInfo(data.conversation);
+        loadConversations();
+      } catch (err) {
+        alert('Error al devolver al bot: ' + err.message);
       }
     }
 
