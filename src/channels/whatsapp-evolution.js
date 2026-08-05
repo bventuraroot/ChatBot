@@ -20,21 +20,22 @@ class WhatsAppEvolutionChannel {
       const payload = mediaUrl
         ? {
             number: toPhone.replace(/[^0-9]/g, ''),
+            mediatype: 'image',
             media: mediaUrl,
-            caption: text,
-            mediatype: 'image'
+            caption: text
           }
         : {
             number: toPhone.replace(/[^0-9]/g, ''),
-            options: { delay: 1200, presence: 'composing' },
-            textMessage: { text }
+            text,
+            delay: 0
           };
 
       const response = await axios.post(endpoint, payload, {
         headers: {
           apikey: apiKey,
           'Content-Type': 'application/json'
-        }
+        },
+        timeout: 30000
       });
 
       return { success: true, response: response.data };
