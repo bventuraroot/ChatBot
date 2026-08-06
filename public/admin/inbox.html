@@ -86,11 +86,38 @@
     let socket = null;
 
     function initSocket() {
-      socket = io();
+      function connect() {
+        socket = window.socket || io();
+        setupSocketListeners();
+        loadConversations();
+      }
 
-      socket.on('connect', () => {
-        console.log('⚡ Conectado al WebSocket del servidor');
-      });
+      if (window.socket && window.socket.connected) {
+        socket = window.socket;
+        setupSocketListeners();
+      } else if (window.socket) {
+        socket = window.socket;
+        socket.on('connect', () => setupSocketListeners());
+      } else {
+        // Esperar a que app.js cree el socket
+        let attempts = 0;
+        const check = setInterval(() => {
+          if (window.socket && window.socket.connected) {
+            clearInterval(check);
+            socket = window.socket;
+            setupSocketListeners();
+          } else if (attempts++ > 20) {
+            clearInterval(check);
+            socket = io();
+            socket.on('connect', () => setupSocketListeners());
+          }
+        }, 250);
+      }
+    }
+
+    function setupSocketListeners() {
+      console.log('⚡ Inbox: configurando listeners socket');
+      loadConversations();  // Cargar al conectar
 
       socket.on('admin_new_message', (data) => {
         if (activeConversationId === data.conversation_id) {
@@ -100,9 +127,9 @@
         loadConversations();
       });
 
-      // Alerta en vivo: un cliente pide atención humana
+      // Alerta en vivo: un cliente pide atención humana o bug report
       socket.on('admin_alert', (data) => {
-        if (data && data.type === 'human_needed') {
+        if (data && (data.type === 'human_needed' || data.type === 'bug_report')) {
           showAlert(data);
           playAlertSound();
         }

@@ -234,17 +234,19 @@
     document.addEventListener('DOMContentLoaded', () => {
       loadActivity();
 
-      if (typeof socket !== 'undefined') {
-        document.getElementById('ws-dot').style.visibility = 'visible';
-
-        socket.on('admin_activity', (data) => {
-          if (!data) return;
-          addActivity(data);
-        });
-      } else {
-        document.getElementById('ws-dot').style.background = '#ef4444';
-        document.getElementById('ws-dot').style.animation = 'none';
+      // Esperar a que initAdminSocket cree el socket
+      function waitForSocket() {
+        if (window.socket) {
+          document.getElementById('ws-dot').style.visibility = 'visible';
+          window.socket.on('admin_activity', (data) => {
+            if (!data) return;
+            addActivity(data);
+          });
+        } else {
+          setTimeout(waitForSocket, 500);
+        }
       }
+      waitForSocket();
     });
 
     // refresca visitantes cada 10 segundos

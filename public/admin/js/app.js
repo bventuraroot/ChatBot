@@ -147,8 +147,36 @@ document.addEventListener('DOMContentLoaded', () => {
     checkAuth();
     initUserHeader();
     initMobileMenu();
+    initAdminSocket();
   }
 });
+
+// ── Socket.IO para admin (compartido en todas las páginas) ────────
+function initAdminSocket() {
+  if (typeof io === 'undefined') {
+    const script = document.createElement('script');
+    script.src = '/socket.io/socket.io.js';
+    script.onload = () => connectAdminSocket();
+    document.head.appendChild(script);
+  } else {
+    connectAdminSocket();
+  }
+}
+
+function connectAdminSocket() {
+  if (window._adminSocket) return;
+  const socket = io({ transports: ['websocket'] });
+  window._adminSocket = socket;
+  window.socket = socket; // expose globally
+
+  socket.on('connect', () => {
+    console.log('🔌 Admin socket conectado:', socket.id);
+  });
+
+  socket.on('disconnect', () => {
+    console.log('🔌 Admin socket desconectado');
+  });
+}
 
 // ── Menú móvil con hamburguesa ────────────────────────────────────
 function initMobileMenu() {
