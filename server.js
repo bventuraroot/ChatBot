@@ -276,6 +276,11 @@ io.on('connection', (socket) => {
   });
 });
 
+// GET /admin/monitor — Página de monitoreo
+app.get('/admin/monitor', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'admin', 'monitor.html'));
+});
+
 // Inicialización del servidor
 const PORT = process.env.PORT || 3000;
 

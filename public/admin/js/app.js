@@ -167,15 +167,110 @@ function connectAdminSocket() {
   if (window._adminSocket) return;
   const socket = io({ transports: ['websocket'] });
   window._adminSocket = socket;
-  window.socket = socket; // expose globally
+  window.socket = socket;
 
   socket.on('connect', () => {
     console.log('🔌 Admin socket conectado:', socket.id);
+    initNotifications();
   });
 
   socket.on('disconnect', () => {
     console.log('🔌 Admin socket desconectado');
   });
+
+  // Notificaciones globales para todas las páginas admin
+  socket.on('admin_new_message', (data) => {
+    if (data && data.message && data.message.sender_type === 'customer') {
+      playNotificationSound();
+      showDesktopNotification(data);
+      incrementTitleBadge();
+    }
+  });
+
+  // Alerta de bug o atención humana
+  socket.on('admin_alert', (data) => {
+    if (data) {
+      playAlertSound();
+      if (data.conversation_id) incrementTitleBadge();
+    }
+  });
+}
+
+// ── Sistema de notificaciones ──────────────────────────────────────
+let _titleBadge = 0;
+let _originalTitle = document.title;
+
+function initNotifications() {
+  _originalTitle = document.title;
+  // Solicitar permiso para notificaciones de escritorio
+  if ('Notification' in window && Notification.permission === 'default') {
+    setTimeout(() => {
+      Notification.requestPermission();
+    }, 5000); // Esperar 5s para no molestar al cargar
+  }
+}
+
+function incrementTitleBadge() {
+  if (document.hidden) {
+    _titleBadge++;
+    document.title = `(${_titleBadge}) ${_originalTitle}`;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) {
+    _titleBadge = 0;
+    document.title = _originalTitle;
+  }
+});
+
+function showDesktopNotification(data) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!document.hidden) return; // Solo si la pestaña está en segundo plano
+
+  const name = data.contact?.name || 'Visitante';
+  const text = (data.message?.text || '').substring(0, 100);
+  try {
+    new Notification('💬 Nuevo mensaje', {
+      body: `${name}: ${text}`,
+      icon: '/admin/favicon.ico',
+      tag: 'chatbot-new-msg'
+    });
+  } catch (e) { /* ignorar */ }
+}
+
+// Sonido de notificación (tono suave)
+function playNotificationSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.type = 'sine';
+    osc.frequency.value = 660;
+    gain.gain.setValueAtTime(0.15, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } catch (e) { /* silencio */ }
+}
+
+// Sonido de alerta (más agudo, para bugs / atención humana)
+function playAlertSound() {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.frequency.value = 880;
+    gain.gain.value = 0.2;
+    osc.start();
+    osc.frequency.setValueAtTime(880, ctx.currentTime);
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.15);
+    osc.stop(ctx.currentTime + 0.35);
+  } catch (e) { /* silencio */ }
 }
 
 // ── Menú móvil con hamburguesa ────────────────────────────────────

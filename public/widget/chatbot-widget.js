@@ -66,7 +66,7 @@
   // Cargar CSS
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = `${serverUrl}/widget/chatbot-widget.css?v=2`;
+  link.href = `${serverUrl}/widget/chatbot-widget.css?v=3`;
   document.head.appendChild(link);
 
   // Cargar Socket.IO
@@ -374,14 +374,15 @@
     function lockBodyScroll() {
       if (isMobile()) {
         document.body.style.overflow = 'hidden';
-        document.body.style.position = 'fixed';
-        document.body.style.width = '100%';
-        document.body.style.height = '100%';
+        document.documentElement.style.overflow = 'hidden';
+        document.body.style.touchAction = 'none';
       }
     }
 
     function unlockBodyScroll() {
       document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+      document.body.style.touchAction = '';
       document.body.style.position = '';
       document.body.style.width = '';
       document.body.style.height = '';

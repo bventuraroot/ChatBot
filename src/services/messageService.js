@@ -192,7 +192,14 @@ class MessageService {
     } else if (conversation.channel === 'whatsapp_evolution') {
       await WhatsAppEvolutionChannel.sendMessage(contact.phone, text);
     }
-    // Para webchat: el widget recibe el mensaje por Socket.IO vía NotificationService
+
+    // Incluir avatar del admin en la notificación para el widget
+    const User = require('../models/User');
+    const users = await User.getAll();
+    const admin = users.find(u => u.role === 'admin') || users[0];
+    if (admin && admin.avatar) {
+      botMsg.agent_avatar = admin.avatar;
+    }
 
     NotificationService.notifyNewMessage(conversation.id, botMsg, contact);
     NotificationService.notifyConversationUpdated(await Conversation.findById(conversation.id));
@@ -269,6 +276,8 @@ class MessageService {
     if (!conversation) throw new Error('Conversación no encontrada');
 
     const contact = await Contact.findById(conversation.contact_id);
+    const User = require('../models/User');
+    const agentUser = await User.findById(agentId);
 
     const agentMsg = await Message.create({
       conversation_id: conversation.id,
@@ -278,6 +287,12 @@ class MessageService {
       media_url: mediaUrl,
       media_type: mediaType || (mediaUrl ? 'image' : null)
     });
+
+    // Incluir avatar del agente para el widget
+    if (agentUser && agentUser.avatar) {
+      agentMsg.agent_avatar = agentUser.avatar;
+      agentMsg.agent_name = agentUser.name;
+    }
 
     // Enviar por canal externo
     if (conversation.channel === 'whatsapp_cloud') {
