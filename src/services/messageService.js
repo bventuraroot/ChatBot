@@ -104,20 +104,14 @@ class MessageService {
       return customerMsg;
     }
 
-    // 7. Detección de petición de humano — SIEMPRE抢先 antes del horario.
-    // Si el cliente pide un agente/asesor/persona real, escalar de inmediato
-    // sin importar si estamos dentro o fuera de horario de atención.
-    if (MessageService.wantsHumanIntent(text)) {
-      if (process.env.DEBUG_LOGS === 'true') {
-        console.log(`🔔 Detección de humano: "${text}"`);
-      }
-      const transferText = await Setting.get(
-        'HUMAN_TRANSFER_MESSAGE',
-        '¡Claro! Te conectaré con un agente humano. Un momento por favor.'
-      );
-      await MessageService.sendBotResponse(conversation, contact, transferText);
-      await MessageService.escalateToHuman(conversation, contact, text);
-      return customerMsg;
+    // 7. Si el cliente pide un agente/asesor/persona real, NO escalamos de inmediato.
+    // Dejamos que la IA recabe información relevante primero y decida cuándo escalar
+    // con un resumen del contexto. El sistema de IA tiene instrucciones detalladas para
+    // hacer preguntas clave antes de usar [HUMANO].
+    // (La detección de wantsHumanIntent se mantiene para logging pero ya no bloquea el flujo)
+    const wantsHuman = MessageService.wantsHumanIntent(text);
+    if (process.env.DEBUG_LOGS === 'true' && wantsHuman) {
+      console.log(`🔔 Detección de intención humana: "${text}" — dejando que la IA recabe contexto primero`);
     }
 
     // 8. FAQ + IA (siempre, el chatbot responde preguntas 24/7)
@@ -134,7 +128,7 @@ class MessageService {
       // Si la IA decide que el cliente necesita un humano, avisar al admin
       // por WhatsApp y asignar la conversación para que la responda.
       if (response.wantsHuman) {
-        await MessageService.escalateToHuman(conversation, contact, text);
+        await MessageService.escalateToHuman(conversation, contact, text, response.summary);
       }
     } else {
       // 9. Sin respuesta → verificar horario para elegir mensaje
@@ -210,7 +204,7 @@ class MessageService {
 
   // Escala la conversación a un humano: avisa al admin por WhatsApp y en el
   // panel, y asigna la conversación al primer usuario admin/agente.
-  static async escalateToHuman(conversation, contact, customerText) {
+  static async escalateToHuman(conversation, contact, customerText, summary = null) {
     try {
       const Setting = require('../models/Setting');
 
@@ -225,6 +219,7 @@ class MessageService {
         conversation_id: conversation.id,
         contact_name: contactName,
         message: customerText || 'Solicitó atención humana',
+        summary: summary || null,
         channel: channelName,
         time: new Date().toISOString()
       });
@@ -233,12 +228,17 @@ class MessageService {
       const alertPhone = await Setting.get('ALERT_PHONE');
       let whatsappAlertSent = false;
       if (alertPhone) {
-        const alertText =
+        let alertText =
           `🔔 *Nuevo mensaje necesita atención humana*\n\n` +
           `👤 *${contactName}*\n` +
           `💬 "${customerText || ''}"\n` +
-          `🌐 Canal: ${channelName}\n\n` +
-          `Responde desde el panel admin o aquí mismo.`;
+          `🌐 Canal: ${channelName}`;
+
+        if (summary) {
+          alertText += `\n\n📋 *Resumen de la IA:*\n${summary}`;
+        }
+
+        alertText += `\n\nResponde desde el panel admin o aquí mismo.`;
 
         // Usar el canal de WhatsApp que esté configurado
         if (conversation.channel === 'whatsapp_cloud') {

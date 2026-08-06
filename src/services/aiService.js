@@ -15,7 +15,7 @@ class AIService {
     );
 
     // Límite de tokens configurable (respuestas más amplias o más cortas)
-    const maxTokens = parseInt(await Setting.get('AI_MAX_TOKENS', '350'), 10) || 350;
+    const maxTokens = parseInt(await Setting.get('AI_MAX_TOKENS', '500'), 10) || 500;
 
     // Obtener contenido de la base de conocimiento (cliente + global) para enriquecer el prompt
     const faqs = await KnowledgeItem.getAll({ activeOnly: true, clientId });
@@ -34,7 +34,7 @@ class AIService {
       externalText = `\n\nDatos actuales del sistema del cliente obtenidos en tiempo real (usa estos datos para responder con precisión):\n${externalContext}\n`;
     }
 
-    const fullSystemPrompt = `${systemPrompt}${contextText}${externalText}\n\nResponde de manera concisa, clara, amable y profesional en español. Eres un asistente virtual que puede manejar tanto preguntas de negocio como conversación casual. No digas que eres una IA ni menciones tus limitaciones — simplemente responde lo mejor que puedas.\n\nIMPORTANTE: SOLO usa el marcador [HUMANO] al inicio de tu respuesta cuando el usuario EXPLÍCITAMENTE pida hablar con una persona (agente, asesor, humano, representante). En cualquier otro caso, NUNCA uses [HUMANO].`;
+    const fullSystemPrompt = `${systemPrompt}${contextText}${externalText}\n\nResponde de manera concisa, clara, amable y profesional en español. Eres un asistente virtual que puede manejar tanto preguntas de negocio como conversación casual. No digas que eres una IA ni menciones tus limitaciones — simplemente responde lo mejor que puedas.\n\n--- REGLAS PARA ESCALAR A UN HUMANO ---\n\nNO escales de inmediato cuando el usuario pida un agente. Primero RECABA información clave (1-2 preguntas) para entender bien su caso. Ejemplos de preguntas útiles: "¿Podrías darme más detalles sobre lo que necesitas?", "¿Tienes algún número de pedido, factura o referencia?", "¿Desde cuándo tienes este problema?".\n\nDEBES escalar con [HUMANO] en estos casos:\n1. El usuario pide explícitamente un agente Y ya tienes suficiente contexto sobre su caso.\n2. La consulta requiere acciones que tú no puedes hacer (reembolsos, cancelaciones, cambios en cuenta, verificación de pagos, datos personales sensibles).\n3. El usuario está claramente frustrado o insatisfecho después de que intentaste ayudarlo.\n4. La pregunta está fuera del alcance de la información oficial (FAQ) que tienes disponible.\n\nCUANDO escales, DEBES incluir un bloque [RESUMEN]...[/RESUMEN] con:\n- Asunto: qué necesita el usuario en una frase\n- Contexto: datos clave que recabaste (nombre, pedido, monto, fechas, etc.)\n- Motivo: por qué necesita atención humana\n\nEjemplo de respuesta con escalado:\n[HUMANO]\n[RESUMEN]\nAsunto: Cliente no recibió su pedido #4521\nContexto: Pedido hecho el 3 de agosto, pagó $1,200 por transferencia, ya revisó el portal y aparece como "en proceso"\nMotivo: Requiere verificar el estado real en el sistema de logística\n[/RESUMEN]\nEntendido, ya le pasé tu caso a nuestro equipo con todos los detalles de tu pedido #4521. Te van a contactar pronto para darte una solución.`;
 
     const aiText = await (async () => {
       if (provider === 'openai') {
@@ -49,12 +49,27 @@ class AIService {
       return null;
     })();
 
-    // Devolver objeto con la respuesta y si requiere escalar a un humano
     if (!aiText) return null;
+
     const wantsHuman = /^\s*\[HUMANO\]/i.test(aiText);
+
+    let summary = null;
+    let cleanAnswer = aiText;
+
+    if (wantsHuman) {
+      const resumenMatch = aiText.match(/\[RESUMEN\]\s*([\s\S]*?)\s*\[\/RESUMEN\]/i);
+      if (resumenMatch) {
+        summary = resumenMatch[1].trim();
+        cleanAnswer = aiText.replace(/\[RESUMEN\]\s*[\s\S]*?\s*\[\/RESUMEN\]\s*/i, '');
+      }
+    }
+
+    cleanAnswer = cleanAnswer.replace(/^\s*\[HUMANO\]\s*/i, '').trim();
+
     return {
-      answer: aiText.replace(/^\s*\[HUMANO\]\s*/i, '').trim(),
-      wantsHuman
+      answer: cleanAnswer,
+      wantsHuman,
+      summary
     };
   }
 

@@ -56,7 +56,8 @@ class DynamicResponseEngine {
       return {
         source: 'ai',
         answer: DynamicResponseEngine.renderTemplate(aiResult.answer, contact),
-        wantsHuman: !!aiResult.wantsHuman
+        wantsHuman: !!aiResult.wantsHuman,
+        summary: aiResult.summary || null
       };
     }
     if (process.env.DEBUG_LOGS === 'true') {
