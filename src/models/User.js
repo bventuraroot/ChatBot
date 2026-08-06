@@ -23,16 +23,28 @@ class User {
     return await User.findById(result.lastID);
   }
 
-  static async update(id, { name, email, role, avatar }) {
-    await dbAsync.run(
-      'UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), role = COALESCE(?, role), avatar = COALESCE(?, avatar), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-      [name, email, role, avatar, id]
-    );
+  static async update(id, { name, email, role, avatar, password }) {
+    if (password) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      await dbAsync.run(
+        'UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), role = COALESCE(?, role), avatar = COALESCE(?, avatar), password = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [name, email, role, avatar, hashedPassword, id]
+      );
+    } else {
+      await dbAsync.run(
+        'UPDATE users SET name = COALESCE(?, name), email = COALESCE(?, email), role = COALESCE(?, role), avatar = COALESCE(?, avatar), updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        [name, email, role, avatar, id]
+      );
+    }
     return await User.findById(id);
   }
 
   static async verifyPassword(user, password) {
     return await bcrypt.compare(password, user.password);
+  }
+
+  static async delete(id) {
+    await dbAsync.run('DELETE FROM users WHERE id = ?', [id]);
   }
 }
 

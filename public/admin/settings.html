@@ -50,6 +50,7 @@
           <button class="btn btn-secondary" id="tab-btn-wa" onclick="showTab('wa')">📱 WhatsApp (Meta & QR)</button>
           <button class="btn btn-secondary" id="tab-btn-ai" onclick="showTab('ai')">🤖 Motor de IA</button>
           <button class="btn btn-secondary" id="tab-btn-widget" onclick="showTab('widget')">🌐 Widget Web</button>
+          <button class="btn btn-secondary" id="tab-btn-agents" onclick="showTab('agents')">👥 Agentes</button>
           <button class="btn btn-secondary" id="tab-btn-apikeys" onclick="showTab('apikeys')">🔌 API Keys Sistema</button>
         </div>
 
@@ -344,6 +345,68 @@
           </div>
         </div>
 
+        <!-- TAB AGENTS: Agentes -->
+        <div id="tab-agents" style="display: none;">
+          <div class="stat-card" style="flex-direction: column; align-items: flex-start; width: 100%;">
+            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center; margin-bottom: 15px;">
+              <div>
+                <h2 style="font-size: 1.2rem;">👥 Agentes de Atención</h2>
+                <p style="font-size: 0.85rem; color: var(--text-muted);">Crea agentes para que puedan responder chats desde la bandeja de entrada.</p>
+              </div>
+              <button class="btn btn-accent" onclick="showAgentForm()">➕ Nuevo Agente</button>
+            </div>
+
+            <!-- Formulario (oculto por defecto) -->
+            <div id="agent-form" style="display:none;background:#0f172a;border:1px solid var(--border-color);border-radius:var(--radius-md);padding:16px;margin-bottom:16px;width:100%;">
+              <h3 id="agent-form-title" style="margin-bottom:12px;">Nuevo Agente</h3>
+              <input type="hidden" id="agent-id">
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="form-group">
+                  <label class="form-label">Nombre</label>
+                  <input type="text" id="agent-name" class="form-control" placeholder="Nombre del agente">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Email</label>
+                  <input type="email" id="agent-email" class="form-control" placeholder="correo@ejemplo.com">
+                </div>
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+                <div class="form-group">
+                  <label class="form-label">Contraseña</label>
+                  <input type="password" id="agent-password" class="form-control" placeholder="Mínimo 6 caracteres">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Rol</label>
+                  <select id="agent-role" class="form-control">
+                    <option value="agent">Agente (solo responde chats)</option>
+                    <option value="admin">Admin (acceso total)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="display:flex;gap:10px;margin-top:10px;">
+                <button class="btn btn-accent" onclick="saveAgent()">💾 Guardar</button>
+                <button class="btn btn-secondary" onclick="hideAgentForm()">Cancelar</button>
+              </div>
+            </div>
+
+            <div class="table-container" style="width: 100%;">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Nombre</th>
+                    <th>Email</th>
+                    <th>Rol</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody id="agents-table-body">
+                  <tr><td colspan="4" style="text-align:center;color:var(--text-muted);">Cargando agentes...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- TAB 5: API KEYS SISTEMA EXTERNO -->
         <div id="tab-apikeys" style="display: none;">
           <div class="stat-card" style="flex-direction: column; align-items: flex-start; width: 100%;">
@@ -381,7 +444,7 @@
   <script src="js/app.js"></script>
   <script>
     function showTab(tabName) {
-      ['general', 'wa', 'ai', 'widget', 'apikeys'].forEach(t => {
+      ['general', 'wa', 'ai', 'widget', 'agents', 'apikeys'].forEach(t => {
         document.getElementById(`tab-${t}`).style.display = t === tabName ? 'block' : 'none';
         const btn = document.getElementById(`tab-btn-${t}`);
         if (t === tabName) {
@@ -393,6 +456,7 @@
 
       if (tabName === 'apikeys') loadApiKeys();
       if (tabName === 'widget') generateWidgetSnippet();
+      if (tabName === 'agents') loadAgents();
     }
 
     async function loadSettings() {
@@ -494,6 +558,72 @@
       } catch (err) {
         alert('Error revocando API key: ' + err.message);
       }
+    }
+
+    // ── Gestión de Agentes ──────────────────────────────────────────
+    function showAgentForm(agent) {
+      document.getElementById('agent-form').style.display = 'block';
+      document.getElementById('agent-form-title').textContent = agent ? 'Editar Agente' : 'Nuevo Agente';
+      document.getElementById('agent-id').value = agent ? agent.id : '';
+      document.getElementById('agent-name').value = agent ? agent.name : '';
+      document.getElementById('agent-email').value = agent ? agent.email : '';
+      document.getElementById('agent-password').value = '';
+      document.getElementById('agent-role').value = agent ? agent.role : 'agent';
+    }
+
+    function hideAgentForm() {
+      document.getElementById('agent-form').style.display = 'none';
+    }
+
+    async function loadAgents() {
+      try {
+        const data = await apiFetch('/users');
+        const tbody = document.getElementById('agents-table-body');
+        if (data.users.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">No hay agentes</td></tr>';
+          return;
+        }
+        tbody.innerHTML = data.users.map(u => `
+          <tr>
+            <td><strong>${u.name}</strong></td>
+            <td>${u.email}</td>
+            <td>${u.role === 'admin' ? '👑 Admin' : '💬 Agente'}</td>
+            <td>
+              <button class="btn btn-secondary" style="padding:4px 8px;font-size:0.8rem;" onclick='showAgentForm(${JSON.stringify(u).replace(/'/g,\"\\'\")})'>✏️</button>
+              <button class="btn btn-danger" style="padding:4px 8px;font-size:0.8rem;" onclick="deleteAgent(${u.id})">🗑️</button>
+            </td>
+          </tr>
+        `).join('');
+      } catch (err) { console.error(err); }
+    }
+
+    async function saveAgent() {
+      const id = document.getElementById('agent-id').value;
+      const name = document.getElementById('agent-name').value.trim();
+      const email = document.getElementById('agent-email').value.trim();
+      const password = document.getElementById('agent-password').value;
+      const role = document.getElementById('agent-role').value;
+
+      if (!name || !email) return alert('Nombre y email requeridos');
+      if (!id && password.length < 3) return alert('Contraseña requerida');
+
+      try {
+        if (id) {
+          const body = { name, email, role };
+          if (password) body.password = password;
+          await apiFetch(`/users/${id}`, { method: 'PUT', body: JSON.stringify(body) });
+        } else {
+          await apiFetch('/users', { method: 'POST', body: JSON.stringify({ name, email, password, role }) });
+        }
+        hideAgentForm();
+        loadAgents();
+      } catch (err) { alert('Error: ' + err.message); }
+    }
+
+    async function deleteAgent(id) {
+      if (!confirm('¿Eliminar agente?')) return;
+      try { await apiFetch(`/users/${id}`, { method: 'DELETE' }); loadAgents(); }
+      catch (err) { alert('Error: ' + err.message); }
     }
 
     document.addEventListener('DOMContentLoaded', () => {

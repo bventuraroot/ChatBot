@@ -447,6 +447,25 @@ router.post('/users', async (req, res) => {
   }
 });
 
+router.put('/users/:id', async (req, res) => {
+  try {
+    const { name, email, role } = req.body;
+    const user = await User.update(req.params.id, { name, email, role });
+    res.json({ user });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/users/:id', async (req, res) => {
+  try {
+    await User.delete(req.params.id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- CLIENTES (Multi-Tenant) ---
 router.get('/clients', async (req, res) => {
   try {
