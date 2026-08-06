@@ -44,7 +44,7 @@ const fileFilter = (req, file, cb) => {
   }
 };
 
-const upload = multer({ storage, fileFilter, limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({ storage, fileFilter, limits: { fileSize: 50 * 1024 * 1024 } });
 
 // Login de usuario admin/agente
 router.post('/login', loginLimiter, async (req, res) => {
@@ -176,28 +176,44 @@ router.put('/me', async (req, res) => {
 });
 
 // POST /admin/me/avatar — Subir foto de perfil del agente
-router.post('/me/avatar', upload.single('avatar'), async (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No se recibió ninguna imagen' });
-    const avatarUrl = `/uploads/${req.file.filename}`;
-    const user = await User.update(req.user.id, { avatar: avatarUrl });
-    res.json({ user, avatar: avatarUrl });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+router.post('/me/avatar', (req, res, next) => {
+  upload.single('avatar')(req, res, async (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'La imagen excede el límite de 50MB' });
+      }
+      return res.status(400).json({ error: err.message || 'Error al subir la imagen' });
+    }
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No se recibió ninguna imagen' });
+      const avatarUrl = `/uploads/${req.file.filename}`;
+      const user = await User.update(req.user.id, { avatar: avatarUrl });
+      res.json({ user, avatar: avatarUrl });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
 
 // POST /admin/upload — Subir captura/imagen para enviar en el chat
-router.post('/upload', upload.single('file'), (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
-    res.json({
-      url: `/uploads/${req.file.filename}`,
-      media_type: req.file.mimetype.startsWith('image/') ? 'image' : 'document'
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+router.post('/upload', (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'La imagen excede el límite de 50MB' });
+      }
+      return res.status(400).json({ error: err.message || 'Error al subir el archivo' });
+    }
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No se recibió ningún archivo' });
+      res.json({
+        url: `/uploads/${req.file.filename}`,
+        media_type: req.file.mimetype.startsWith('image/') ? 'image' : 'document'
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
 
 // GET /admin/stats — Estadísticas para el Dashboard

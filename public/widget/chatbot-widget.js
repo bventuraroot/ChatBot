@@ -475,11 +475,46 @@
       }
     });
 
-    // Sube la imagen y la envía como mensaje del cliente
-    function sendImage(file) {
-      const formData = new FormData();
-      formData.append('file', file);
+    // Comprime imágenes grandes (screenshots Retina, paste de portapapeles)
+    // para evitar 413 Payload Too Large y reducir tiempo de subida.
+    function compressImage(file, maxWidth = 1920, quality = 0.8) {
+      return new Promise((resolve, reject) => {
+        if (!file.type || !file.type.startsWith('image/')) {
+          return resolve(file); // No es imagen, subir tal cual
+        }
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+        img.onload = () => {
+          URL.revokeObjectURL(url);
+          const w = img.width;
+          const h = img.height;
+          if (w <= maxWidth && file.size < 512 * 1024) {
+            return resolve(file); // Ya es pequeño, no comprimir
+          }
+          const scale = Math.min(1, maxWidth / w);
+          const canvas = document.createElement('canvas');
+          canvas.width = Math.round(w * scale);
+          canvas.height = Math.round(h * scale);
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(new File([blob], file.name || 'pasted-image.jpg', { type: 'image/jpeg' }));
+            } else {
+              resolve(file); // fallback al original
+            }
+          }, 'image/jpeg', quality);
+        };
+        img.onerror = () => {
+          URL.revokeObjectURL(url);
+          resolve(file);
+        };
+        img.src = url;
+      });
+    }
 
+    // Sube la imagen y la envía como mensaje del cliente
+    async function sendImage(file) {
       // Mostrar la imagen al instante en el chat del cliente
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -495,31 +530,34 @@
       };
       reader.readAsDataURL(file);
 
-      fetch(`${serverUrl}/chat/upload`, {
-        method: 'POST',
-        body: formData
-      })
-        .then(r => r.json())
-        .then(data => {
-          if (!data.url) throw new Error(data.error || 'Error al subir');
-          socket.emit('webchat_message', {
-            visitor_id: visitorId,
-            name: userName,
-            email: userEmail,
-            role: userRole,
-            system: systemName,
-            client_id: clientId,
-            text: '',
-            media_url: data.url.startsWith('/') ? serverUrl + data.url : data.url,
-            media_type: 'image',
-            page_url: pageUrl,
-            page_title: pageTitle
-          });
-        })
-        .catch(err => {
-          console.error('Error subiendo imagen:', err);
-          appendMsg('⚠️ No se pudo enviar la imagen. Intenta de nuevo.', 'bot');
+      try {
+        const compressed = await compressImage(file);
+        const formData = new FormData();
+        formData.append('file', compressed);
+
+        const r = await fetch(`${serverUrl}/chat/upload`, {
+          method: 'POST',
+          body: formData
         });
+        const data = await r.json();
+        if (!data.url) throw new Error(data.error || 'Error al subir');
+        socket.emit('webchat_message', {
+          visitor_id: visitorId,
+          name: userName,
+          email: userEmail,
+          role: userRole,
+          system: systemName,
+          client_id: clientId,
+          text: '',
+          media_url: data.url.startsWith('/') ? serverUrl + data.url : data.url,
+          media_type: 'image',
+          page_url: pageUrl,
+          page_title: pageTitle
+        });
+      } catch (err) {
+        console.error('Error subiendo imagen:', err);
+        appendMsg('⚠️ No se pudo enviar la imagen. Intenta de nuevo.', 'bot');
+      }
     }
 
     function sendMessage() {

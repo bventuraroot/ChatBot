@@ -90,6 +90,7 @@
   <script>
     let activeConversationId = null;
     let socket = null;
+    const _appendedMsgIds = new Set();
 
     function initSocket() {
       function connect() {
@@ -207,6 +208,7 @@
     function showConversationList() {
       if (window.innerWidth <= 768) {
         document.querySelector('.conversations-sidebar').style.display = 'flex';
+        document.querySelector('.chat-area').style.display = 'none';
         document.getElementById('chat-header').style.display = 'none';
         document.getElementById('chat-input-area').style.display = 'none';
         document.getElementById('msg-input').blur();
@@ -234,6 +236,7 @@
       // En móvil: ocultar sidebar y mostrar solo el chat
       if (window.innerWidth <= 768) {
         document.querySelector('.conversations-sidebar').style.display = 'none';
+        document.querySelector('.chat-area').style.display = 'flex';
         document.getElementById('chat-header').style.display = 'flex';
         document.getElementById('chat-input-area').style.display = 'flex';
         document.getElementById('btn-back-to-list').style.display = 'flex';
@@ -267,6 +270,7 @@
 
         const messagesEl = document.getElementById('chat-messages');
         messagesEl.innerHTML = '';
+        _appendedMsgIds.clear();
 
         messages.forEach(msg => {
           appendMessage(msg);
@@ -378,6 +382,10 @@
     }
 
     function appendMessage(msg) {
+      if (!msg || !msg.id) return;
+      if (_appendedMsgIds.has(msg.id)) return;
+      _appendedMsgIds.add(msg.id);
+
       const messagesEl = document.getElementById('chat-messages');
       const bubble = document.createElement('div');
       
