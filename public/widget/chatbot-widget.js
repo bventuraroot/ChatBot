@@ -692,7 +692,6 @@
     const box = document.getElementById('cb-widget-box');
     if (box && !box.classList.contains('cb-open')) {
       box.classList.add('cb-open');
-      if (isMobile()) lockBodyScroll();
       scrollChat();
     }
   }
