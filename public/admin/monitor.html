@@ -29,6 +29,9 @@
     .visitor-card .visitor-avatar { width: 36px; height: 36px; border-radius: 50%; background: #334155; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.85rem; flex-shrink: 0; }
     .visitor-card .visitor-page { font-size: 0.78rem; color: var(--text-muted); }
     .visitor-card .visitor-time { font-size: 0.75rem; color: var(--primary); }
+    .site-tab { background: var(--bg-sidebar); border: 1px solid var(--border-color); color: var(--text-muted); padding: 6px 14px; border-radius: 20px; font-size: 0.8rem; cursor: pointer; white-space: nowrap; }
+    .site-tab:hover { border-color: var(--primary); color: var(--text-main); }
+    .site-tab-active { background: var(--primary); color: white; border-color: var(--primary); }
   </style>
 </head>
 <body>
@@ -75,6 +78,9 @@
           <div class="monitor-stat"><div class="stat-val" id="stat-chats">0</div><div class="stat-label">Chats Abiertos</div></div>
         </div>
 
+        <!-- Tabs por sitio web -->
+        <div id="site-tabs" style="display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap;"></div>
+
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
           <div>
             <h3 style="margin-bottom: 10px; font-size: 1rem;"><span class="connected-dot" id="ws-dot"></span> Visitantes Conectados</h3>
@@ -98,6 +104,43 @@
     let activityLog = [];
     let visitors = new Map();
     let stats = { active: 0, messages: 0, bugs: 0, chats: 0 };
+    let activeSite = 'all';
+
+    function getSites() {
+      const sites = new Map();
+      activityLog.forEach(a => {
+        const host = (a.page_url || 'unknown').split('/')[0];
+        sites.set(host, (sites.get(host) || 0) + 1);
+      });
+      return Array.from(sites.entries()).sort((a, b) => b[1] - a[1]);
+    }
+
+    function renderSiteTabs() {
+      const sites = getSites();
+      const tabsEl = document.getElementById('site-tabs');
+      if (sites.length <= 1) { tabsEl.innerHTML = ''; return; }
+
+      let html = `<button class="site-tab ${activeSite === 'all' ? 'site-tab-active' : ''}" onclick="filterBySite('all')">🌐 Todos (${activityLog.length})</button>`;
+      sites.forEach(([host, count]) => {
+        html += `<button class="site-tab ${activeSite === host ? 'site-tab-active' : ''}" onclick="filterBySite('${host}')">${escapeHtml(host)} (${count})</button>`;
+      });
+      tabsEl.innerHTML = html;
+    }
+
+    function filterBySite(site) {
+      activeSite = site;
+      renderSiteTabs();
+      renderActivity();
+      renderVisitors();
+    }
+
+    function getFilteredActivity() {
+      if (activeSite === 'all') return activityLog;
+      return activityLog.filter(a => {
+        const host = (a.page_url || 'unknown').split('/')[0];
+        return host === activeSite;
+      });
+    }
 
     function formatTime(ts) {
       const d = new Date(ts);
@@ -138,12 +181,14 @@
       renderActivity();
       renderVisitors();
       updateStats();
+      renderSiteTabs();
     }
 
     function renderActivity() {
-      activityFeed.innerHTML = activityLog.length === 0
+      const filtered = getFilteredActivity();
+      activityFeed.innerHTML = filtered.length === 0
         ? '<div class="empty-monitor">Esperando actividad...</div>'
-        : activityLog.slice(0, 50).map(a => `
+        : filtered.slice(0, 50).map(a => `
           <div class="activity-item">
             <div class="activity-icon">${iconMap[a.type] || '📌'}</div>
             <div class="activity-info">
@@ -162,18 +207,27 @@
 
     function renderVisitors() {
       const now = Date.now();
+      const cutoff = now - 90000;
       visitors.forEach((v, key) => {
-        const elapsed = (now - new Date(v.time).getTime()) / 1000;
-        if (elapsed > 90) visitors.delete(key);
+        if (new Date(v.time).getTime() < cutoff) visitors.delete(key);
       });
 
-      if (visitors.size === 0) {
+      // Filtrar por sitio activo
+      const filteredVisitors = new Map();
+      visitors.forEach((v, key) => {
+        const host = (v.page_url || 'unknown').split('/')[0];
+        if (activeSite === 'all' || host === activeSite) {
+          filteredVisitors.set(key, v);
+        }
+      });
+
+      if (filteredVisitors.size === 0) {
         visitorsList.innerHTML = '<div class="empty-monitor" style="padding:20px;font-size:0.85rem;">Sin visitantes conectados</div>';
         return;
       }
 
       visitorsList.innerHTML = '';
-      visitors.forEach(v => {
+      filteredVisitors.forEach(v => {
         const card = document.createElement('div');
         card.className = 'visitor-card';
         card.innerHTML = `

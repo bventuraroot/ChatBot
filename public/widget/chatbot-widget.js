@@ -596,17 +596,28 @@
     const box = document.getElementById('cb-messages-box');
     if (!box) return;
     const div = document.createElement('div');
-    const type = senderType === 'customer' ? 'customer' : 'bot';
+    const type = senderType === 'customer' ? 'customer' : (senderType === 'agent' ? 'agent' : 'bot');
     div.className = `cb-msg cb-msg-${type}`;
 
-    // Avatar del agente (si el mensaje lo incluye)
+    // Avatar y nombre del agente (si el mensaje lo incluye)
     if (extra && extra.agent_avatar && senderType !== 'customer') {
+      // Fila de avatar + nombre
+      const avatarRow = document.createElement('div');
+      avatarRow.className = 'cb-msg-sender-row';
+
       const avatar = document.createElement('img');
       avatar.className = 'cb-msg-avatar';
       avatar.src = extra.agent_avatar;
-      avatar.alt = 'Agente';
+      avatar.alt = '';
       avatar.onerror = function () { this.style.display = 'none'; };
-      div.appendChild(avatar);
+      avatarRow.appendChild(avatar);
+
+      const nameLabel = document.createElement('span');
+      nameLabel.className = 'cb-msg-sender-name';
+      nameLabel.textContent = senderType === 'agent' ? (extra.agent_name || 'Agente') : 'Bot IA';
+      avatarRow.appendChild(nameLabel);
+
+      div.appendChild(avatarRow);
       const bubble = document.createElement('div');
       bubble.className = 'cb-msg-bubble-inner';
       // Contenido: imagen o texto

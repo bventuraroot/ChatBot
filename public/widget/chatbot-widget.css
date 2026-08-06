@@ -130,6 +130,19 @@
   margin-right: 8px;
 }
 
+.cb-msg-sender-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+
+.cb-msg-sender-name {
+  font-size: 0.72rem;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
 .cb-msg-bubble-inner {
   min-width: 0;
 }

@@ -199,6 +199,7 @@ class MessageService {
     const admin = users.find(u => u.role === 'admin') || users[0];
     if (admin && admin.avatar) {
       botMsg.agent_avatar = admin.avatar;
+      botMsg.agent_name = admin.name || 'Bot IA';
     }
 
     NotificationService.notifyNewMessage(conversation.id, botMsg, contact);
