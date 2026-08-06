@@ -305,18 +305,28 @@
    ============================================ */
 @media (max-width: 768px) {
   #cb-widget-container {
-    bottom: 0;
+    position: fixed;
+    top: 0;
+    left: 0;
     right: 0;
+    bottom: 0;
+    z-index: 999999;
+    pointer-events: none;
+  }
+
+  #cb-widget-box.cb-open {
+    pointer-events: auto;
   }
 
   #cb-widget-button {
+    position: fixed;
+    bottom: 24px;
+    right: 20px;
     width: 56px;
     height: 56px;
-    bottom: 20px;
-    right: 20px;
-    position: fixed;
     font-size: 26px;
     z-index: 999999;
+    pointer-events: auto;
   }
 
   #cb-widget-box {
@@ -326,14 +336,106 @@
     right: 0 !important;
     bottom: 0 !important;
     width: 100% !important;
-    height: 100% !important;
+    height: 100vh !important;
     height: 100dvh !important;
-    height: -webkit-fill-available !important;
-    max-height: none !important;
+    max-width: 100vw !important;
+    max-height: 100vh !important;
+    max-height: 100dvh !important;
     border-radius: 0 !important;
     border: none !important;
-    z-index: 999999;
+    display: none !important;
+    flex-direction: column !important;
+    background: #1e293b !important;
   }
+
+  #cb-widget-box.cb-open {
+    display: flex !important;
+  }
+
+  .cb-header {
+    flex-shrink: 0;
+    padding: 18px 16px 14px;
+    padding-top: max(18px, env(safe-area-inset-top, 20px));
+  }
+
+  .cb-mobile-handle {
+    display: block;
+    width: 40px;
+    height: 5px;
+    background: #64748b;
+    border-radius: 3px;
+    position: absolute;
+    top: max(8px, env(safe-area-inset-top, 8px));
+    left: 50%;
+    transform: translateX(-50%);
+  }
+
+  .cb-header-title { font-size: 1.1rem; }
+  .cb-header-subtitle { font-size: 0.8rem; }
+  .cb-header-close { font-size: 24px; padding: 8px; min-width: 44px; min-height: 44px; }
+
+  .cb-messages {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 16px;
+    gap: 12px;
+  }
+
+  .cb-msg {
+    max-width: 85%;
+    font-size: 1rem;
+    padding: 12px 16px;
+    line-height: 1.5;
+  }
+
+  .cb-msg-image { max-width: 260px; max-height: 260px; }
+  .cb-msg-avatar { width: 36px; height: 36px; }
+  .cb-msg-time { font-size: 0.7rem; }
+  .cb-msg-system { font-size: 0.8rem; }
+
+  .cb-input-area {
+    flex-shrink: 0;
+    padding: 12px 10px;
+    padding-bottom: max(12px, env(safe-area-inset-bottom, 12px));
+    gap: 8px;
+    background: #0f172a;
+    border-top: 1px solid #334155;
+  }
+
+  .cb-input {
+    padding: 14px 16px;
+    font-size: 1rem;
+    border-radius: 24px;
+  }
+
+  .cb-attach-btn {
+    font-size: 1.2rem;
+    padding: 0 14px;
+    border-radius: 50%;
+    min-width: 44px;
+    min-height: 44px;
+  }
+
+  .cb-send-btn {
+    font-size: 1rem;
+    padding: 0 18px;
+    border-radius: 24px;
+    min-width: 48px;
+    min-height: 44px;
+  }
+
+  .cb-type-selector { padding: 18px; }
+  .cb-type-title { font-size: 1.1rem; }
+  .cb-type-btn { padding: 16px; }
+  .cb-type-icon { font-size: 1.7rem; }
+  .cb-type-label { font-size: 0.95rem; }
+
+  .cb-status-bar {
+    font-size: 0.85rem;
+    padding: 10px 16px;
+  }
+}
 
   .cb-header {
     padding: 18px 16px 14px;

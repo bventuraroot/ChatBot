@@ -575,26 +575,35 @@
       document.getElementById('agent-form').style.display = 'none';
     }
 
+    let _agentsData = {};
+
     async function loadAgents() {
       try {
         const data = await apiFetch('/users');
         const tbody = document.getElementById('agents-table-body');
+        _agentsData = {};
         if (data.users.length === 0) {
           tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--text-muted);">No hay agentes</td></tr>';
           return;
         }
+        data.users.forEach(u => _agentsData[u.id] = u);
         tbody.innerHTML = data.users.map(u => `
           <tr>
             <td><strong>${u.name}</strong></td>
             <td>${u.email}</td>
             <td>${u.role === 'admin' ? '👑 Admin' : '💬 Agente'}</td>
             <td>
-              <button class="btn btn-secondary" style="padding:4px 8px;font-size:0.8rem;" onclick='showAgentForm(${JSON.stringify(u).replace(/'/g,\"\\'\")})'>✏️</button>
-              <button class="btn btn-danger" style="padding:4px 8px;font-size:0.8rem;" onclick="deleteAgent(${u.id})">🗑️</button>
+              <button class="btn btn-secondary btn-sm" onclick="editAgentById(${u.id})">✏️</button>
+              <button class="btn btn-danger btn-sm" onclick="deleteAgent(${u.id})">🗑️</button>
             </td>
           </tr>
         `).join('');
       } catch (err) { console.error(err); }
+    }
+
+    function editAgentById(id) {
+      const agent = _agentsData[id];
+      if (agent) showAgentForm(agent);
     }
 
     async function saveAgent() {

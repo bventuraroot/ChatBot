@@ -21,6 +21,14 @@
     BUG_REPORT_MESSAGE: '🐛 Reporte de bug enviado. ¡Gracias! Un agente lo revisará pronto.'
   };
 
+  // Asegurar viewport correcto en móvil (si la página host no lo tiene)
+  if (!document.querySelector('meta[name="viewport"]')) {
+    const meta = document.createElement('meta');
+    meta.name = 'viewport';
+    meta.content = 'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover';
+    document.head.appendChild(meta);
+  }
+
   fetch(`${serverUrl}/chat/settings`)
     .then(r => r.json())
     .then(data => {
@@ -54,6 +62,22 @@
     }
   });
 
+  // Capturar console.error y console.warn
+  const _origError = console.error;
+  const _origWarn = console.warn;
+  console.error = function() {
+    _origError.apply(console, arguments);
+    if (pageErrors.length < MAX_PAGE_ERRORS) {
+      pageErrors.push({ message: 'console: ' + Array.from(arguments).join(' '), source: pageUrl, line: 'console', col: '', time: new Date().toISOString() });
+    }
+  };
+  console.warn = function() {
+    _origWarn.apply(console, arguments);
+    if (pageErrors.length < MAX_PAGE_ERRORS) {
+      pageErrors.push({ message: 'warning: ' + Array.from(arguments).join(' '), source: pageUrl, line: 'console', col: '', time: new Date().toISOString() });
+    }
+  };
+
   // Visitor ID estable: email-based si está autenticado, localStorage si es anónimo
   let visitorId = userEmail
     ? 'user_' + userEmail.replace(/[^a-zA-Z0-9]/g, '_')
@@ -66,7 +90,7 @@
   // Cargar CSS
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = `${serverUrl}/widget/chatbot-widget.css?v=4`;
+  link.href = `${serverUrl}/widget/chatbot-widget.css?v=5`;
   document.head.appendChild(link);
 
   // Cargar Socket.IO
@@ -259,8 +283,14 @@
         `<strong>📄 Página:</strong> ${pageTitle || 'Sin título'}`,
         `<strong>🕐 Hora:</strong> ${new Date().toLocaleString()}`,
         `<strong>👤 Usuario:</strong> ${userName || visitorId}`,
-        `<strong>📏 Pantalla:</strong> ${window.innerWidth}x${window.innerHeight}`,
-        `<strong>🌐 Navegador:</strong> ${navigator.userAgent.split(' ').slice(-1)[0] || navigator.userAgent.substring(0,60)}`
+        `<strong>📏 Pantalla:</strong> ${window.innerWidth}x${window.innerHeight} (DPR: ${window.devicePixelRatio || 1})`,
+        `<strong>🖥️ Plataforma:</strong> ${navigator.platform || 'Desconocido'}`,
+        `<strong>🌐 Navegador:</strong> ${navigator.userAgentData?.brands?.map(b=>b.brand).join(', ') || navigator.userAgent.substring(0,60)}`,
+        `<strong>🌍 Idioma:</strong> ${navigator.language || '?'} (Zona: ${Intl.DateTimeFormat().resolvedOptions().timeZone || '?'})`,
+        `<strong>📶 Conexión:</strong> ${navigator.connection?.effectiveType || '?'}`,
+        `<strong>💾 Memoria:</strong> ${navigator.deviceMemory ? navigator.deviceMemory + 'GB' : '?'}`,
+        `<strong>🍪 Cookies:</strong> ${navigator.cookieEnabled ? 'Sí' : 'No'}`,
+        `<strong>⏱️ Tiempo en página:</strong> ${Math.floor((Date.now() - pageLoadTime) / 1000)}s`
       ];
 
       if (pageErrors.length > 0) {
@@ -297,9 +327,13 @@
           '',
           `📍 *URL:* ${window.location.href}`,
           `📄 *Página:* ${pageTitle || 'Sin título'}`,
-          `📏 *Pantalla:* ${window.innerWidth}x${window.innerHeight}`,
-          `🌐 *Navegador:* ${navigator.userAgent.substring(0, 80)}`,
+          `📏 *Pantalla:* ${window.innerWidth}x${window.innerHeight} · DPR ${window.devicePixelRatio || 1}`,
+          `🖥️ *Plataforma:* ${navigator.platform || '?'}`,
+          `🌐 *Navegador:* ${(navigator.userAgentData?.brands || []).map(b=>b.brand).join(', ') || navigator.userAgent.substring(0, 60)}`,
+          `🌍 *Idioma:* ${navigator.language || '?'} / ${Intl.DateTimeFormat().resolvedOptions().timeZone || '?'}`,
+          `📶 *Conexión:* ${navigator.connection?.effectiveType || '?'} · Mem: ${navigator.deviceMemory || '?'}GB`,
           `📅 *Fecha:* ${new Date().toLocaleString()}`,
+          `⏱️ *Tiempo en página:* ${Math.floor((Date.now() - pageLoadTime) / 1000)}s`,
           '',
           `📝 *Descripción:* ${description}`,
         ];
@@ -373,19 +407,23 @@
 
     function lockBodyScroll() {
       if (isMobile()) {
+        const scrollY = window.scrollY;
+        document.body.style.position = 'fixed';
+        document.body.style.top = `-${scrollY}px`;
+        document.body.style.left = '0';
+        document.body.style.right = '0';
         document.body.style.overflow = 'hidden';
-        document.documentElement.style.overflow = 'hidden';
-        document.body.style.touchAction = 'none';
       }
     }
 
     function unlockBodyScroll() {
-      document.body.style.overflow = '';
-      document.documentElement.style.overflow = '';
-      document.body.style.touchAction = '';
+      const scrollY = document.body.style.top;
       document.body.style.position = '';
-      document.body.style.width = '';
-      document.body.style.height = '';
+      document.body.style.top = '';
+      document.body.style.left = '';
+      document.body.style.right = '';
+      document.body.style.overflow = '';
+      if (scrollY) window.scrollTo(0, parseInt(scrollY) * -1);
     }
 
     toggleBtn.addEventListener('click', () => {
