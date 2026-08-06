@@ -335,7 +335,23 @@ tr:last-child td { border-bottom: none; }
 
 .form-control:focus {
   outline: none;
-  border-color: var(--accent);
+  border-color: var(--primary);
+}
+
+.channel-toggle-card {
+  background: #0f172a;
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 12px;
+}
+
+.channel-toggle-card .form-label {
+  margin-bottom: 6px;
+}
+
+.channel-toggle-card .form-control {
+  padding: 8px 10px;
+  font-size: 0.85rem;
 }
 
 /* Inbox / Live Chat Specifics */

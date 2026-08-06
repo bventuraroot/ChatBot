@@ -53,7 +53,7 @@
   // Cargar CSS
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = `${serverUrl}/widget/chatbot-widget.css`;
+  link.href = `${serverUrl}/widget/chatbot-widget.css?v=2`;
   document.head.appendChild(link);
 
   // Cargar Socket.IO
@@ -103,7 +103,6 @@
         </div>
       </div>
       <button id="cb-widget-button" title="Abrir chat de soporte">💬</button>
-      <button id="cb-bug-report-btn" title="Reportar un bug">🐛</button>
     `;
 
     document.body.appendChild(container);
@@ -162,9 +161,8 @@
       myConversationId = data.conversation_id || null;
 
       if (!data.messages || data.messages.length === 0) {
-        // Primera vez: mensaje de bienvenida
-        const namePart = userName ? ' <strong>' + escapeHtml(userName) + '</strong>' : '';
-        appendMsg(`¡Hola${namePart}! 👋 ¿En qué podemos ayudarte?`, 'bot');
+        // Mostrar selector de tipo de solicitud
+        showRequestTypeSelector();
         return;
       }
 
@@ -210,7 +208,6 @@
     });
 
     // ── Reporte de Bugs ────────────────────────────────────────────
-    const bugReportBtn = document.getElementById('cb-bug-report-btn');
     const bugHeaderBtn = document.getElementById('cb-bug-btn');
     const bugModalEl = document.getElementById('cb-bug-modal');
     const bugDesc = document.getElementById('cb-bug-description');
@@ -245,7 +242,6 @@
       bugModalEl.style.display = 'none';
     }
 
-    bugReportBtn.addEventListener('click', openBugModal);
     bugHeaderBtn.addEventListener('click', openBugModal);
     bugCancel.addEventListener('click', closeBugModal);
 
@@ -467,6 +463,42 @@
       }
     }
 
+    // ── Selector de tipo de solicitud ──────────────────────────────
+    function showRequestTypeSelector() {
+      const box = document.getElementById('cb-messages-box');
+      const div = document.createElement('div');
+      div.className = 'cb-type-selector';
+      div.innerHTML = `
+        <div class="cb-type-title">¿En qué podemos ayudarte?</div>
+        <div class="cb-type-options">
+          <button class="cb-type-btn cb-type-support" id="cb-type-support">
+            <span class="cb-type-icon">💬</span>
+            <span class="cb-type-label">Consulta / Soporte</span>
+            <span class="cb-type-desc">Hacer una pregunta o solicitar ayuda</span>
+          </button>
+          <button class="cb-type-btn cb-type-bug" id="cb-type-bug">
+            <span class="cb-type-icon">🐛</span>
+            <span class="cb-type-label">Reportar un Bug</span>
+            <span class="cb-type-desc">Informar un error o problema técnico</span>
+          </button>
+        </div>
+      `;
+      box.appendChild(div);
+      scrollChat();
+
+      document.getElementById('cb-type-support').addEventListener('click', () => {
+        div.remove();
+        const namePart = userName ? ' <strong>' + escapeHtml(userName) + '</strong>' : '';
+        appendMsg(`¡Hola${namePart}! 👋 ¿En qué podemos ayudarte?`, 'bot');
+        document.getElementById('cb-input-field').focus();
+      });
+
+      document.getElementById('cb-type-bug').addEventListener('click', () => {
+        div.remove();
+        openBugModal();
+      });
+    }
+
     // Cierra la sesión local y arranca una conversación nueva como visitante nuevo.
     function startNewSession() {
       // Borrar datos de sesión local del widget
@@ -482,11 +514,10 @@
       isClosed = false;
       markOpen();
 
-      // Limpiar mensajes mostrados y mostrar bienvenida
+      // Limpiar mensajes mostrados y mostrar selector
       const box = document.getElementById('cb-messages-box');
       box.innerHTML = '';
-      const namePart = userName ? ' <strong>' + escapeHtml(userName) + '</strong>' : '';
-      appendMsg(`¡Hola${namePart}! 👋 ¿En qué podemos ayudarte?`, 'bot');
+      showRequestTypeSelector();
 
       // Re-registrar el visitante en el servidor con el nuevo id
       socket.emit('join_webchat', {

@@ -10,7 +10,24 @@ const WhatsAppEvolutionChannel = require('../channels/whatsapp-evolution');
 
 class MessageService {
   static async handleIncomingMessage({ phone, email, name, channel, text, mediaUrl, mediaType, metadata, notes, clientId, channelData }) {
-    // 1. Determinar el cliente (multi-tenant)
+    // 1. Verificar si el canal está habilitado
+    const channelKeys = {
+      webchat: 'CHANNEL_WEB_ENABLED',
+      whatsapp_cloud: 'CHANNEL_WHATSAPP_CLOUD_ENABLED',
+      whatsapp_evolution: 'CHANNEL_WHATSAPP_EVOLUTION_ENABLED'
+    };
+    const channelKey = channelKeys[channel];
+    if (channelKey) {
+      const channelEnabled = await Setting.get(channelKey, 'true');
+      if (channelEnabled !== 'true') {
+        if (process.env.DEBUG_LOGS === 'true') {
+          console.log(`🚫 Canal ${channel} deshabilitado — mensaje ignorado`);
+        }
+        return null;
+      }
+    }
+
+    // 2. Determinar el cliente (multi-tenant)
     let client = null;
     if (clientId) {
       client = await Client.findById(clientId);

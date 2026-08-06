@@ -63,6 +63,10 @@ router.post('/message', chatLimiter, async (req, res) => {
       notes
     });
 
+    if (!message) {
+      return res.status(200).json({ success: false, reason: 'channel_disabled', message: 'Canal web desactivado' });
+    }
+
     res.json({ success: true, message });
   } catch (err) {
     res.status(500).json({ error: err.message });

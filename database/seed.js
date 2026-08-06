@@ -166,7 +166,10 @@ async function seed() {
       ['BOT_ENABLED', 'true'],
       ['BUSINESS_HOURS_START', '08:00'],
       ['BUSINESS_HOURS_END', '17:00'],
-      ['BUSINESS_HOURS_DAYS', '1,2,3,4,5']
+      ['BUSINESS_HOURS_DAYS', '1,2,3,4,5'],
+      ['CHANNEL_WEB_ENABLED', 'true'],
+      ['CHANNEL_WHATSAPP_CLOUD_ENABLED', 'true'],
+      ['CHANNEL_WHATSAPP_EVOLUTION_ENABLED', 'true']
     ];
     for (const [key, value] of defaultSettings) {
       await dbAsync.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [key, value]);

@@ -65,6 +65,36 @@
             </div>
 
             <div class="form-group" style="width: 100%;">
+              <label class="form-label" style="margin-bottom: 10px;">🔌 Canales de atención habilitados</label>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;">
+                <div class="channel-toggle-card">
+                  <label class="form-label" style="font-size: 0.85rem;">🌐 Chat Web</label>
+                  <select id="setting-CHANNEL_WEB_ENABLED" class="form-control">
+                    <option value="true">🟢 Habilitado</option>
+                    <option value="false">🔴 Deshabilitado</option>
+                  </select>
+                </div>
+                <div class="channel-toggle-card">
+                  <label class="form-label" style="font-size: 0.85rem;">📱 WhatsApp (Meta)</label>
+                  <select id="setting-CHANNEL_WHATSAPP_CLOUD_ENABLED" class="form-control">
+                    <option value="true">🟢 Habilitado</option>
+                    <option value="false">🔴 Deshabilitado</option>
+                  </select>
+                </div>
+                <div class="channel-toggle-card">
+                  <label class="form-label" style="font-size: 0.85rem;">🟢 WhatsApp (QR)</label>
+                  <select id="setting-CHANNEL_WHATSAPP_EVOLUTION_ENABLED" class="form-control">
+                    <option value="true">🟢 Habilitado</option>
+                    <option value="false">🔴 Deshabilitado</option>
+                  </select>
+                </div>
+              </div>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 6px;">
+                Desactiva los canales que no estés usando. Los mensajes de canales desactivados serán ignorados.
+              </p>
+            </div>
+
+            <div class="form-group" style="width: 100%;">
               <label class="form-label">📱 Tu WhatsApp para recibir avisos (atención humana)</label>
               <input type="text" id="setting-ALERT_PHONE" class="form-control" placeholder="5215512345678 (con código de país, sin +)">
               <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
