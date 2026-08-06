@@ -66,7 +66,7 @@
   // Cargar CSS
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = `${serverUrl}/widget/chatbot-widget.css?v=3`;
+  link.href = `${serverUrl}/widget/chatbot-widget.css?v=4`;
   document.head.appendChild(link);
 
   // Cargar Socket.IO
@@ -472,7 +472,7 @@
             system: systemName,
             client_id: clientId,
             text: '',
-            media_url: data.url,
+            media_url: data.url.startsWith('/') ? serverUrl + data.url : data.url,
             media_type: 'image',
             page_url: pageUrl,
             page_title: pageTitle
@@ -624,9 +624,9 @@
       if (extra.media_url && extra.media_type === 'image') {
         const img = document.createElement('img');
         img.className = 'cb-msg-image';
-        img.src = extra.media_url;
+        img.src = (extra.media_url || '').startsWith('/') ? serverUrl + extra.media_url : extra.media_url;
         img.alt = 'Captura';
-        img.onclick = function () { window.open(extra.media_url, '_blank'); };
+        img.onclick = function () { window.open(img.src, '_blank'); };
         bubble.appendChild(img);
       }
       if (text) {
@@ -646,9 +646,9 @@
       if (extra && extra.media_url && extra.media_type === 'image') {
         const img = document.createElement('img');
         img.className = 'cb-msg-image';
-        img.src = extra.media_url;
+        img.src = (extra.media_url || '').startsWith('/') ? serverUrl + extra.media_url : extra.media_url;
         img.alt = 'Captura';
-        img.onclick = function () { window.open(extra.media_url, '_blank'); };
+        img.onclick = function () { window.open(img.src, '_blank'); };
         div.appendChild(img);
       }
       if (text) {

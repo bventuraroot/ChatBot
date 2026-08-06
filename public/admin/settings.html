@@ -25,9 +25,10 @@
 
       <div class="user-profile">
         <div class="user-avatar" id="user-avatar">A</div>
-        <div class="user-info">
+        <div class="user-info" onclick="openProfileModal()" style="cursor:pointer;" title="Mi perfil">
           <div class="user-name" id="user-name">Admin</div>
           <div class="user-role" id="user-role">Administrador</div>
+          <div style="font-size:0.7rem;color:var(--primary);margin-top:2px;">✏️ Editar perfil</div>
         </div>
         <button class="logout-btn" onclick="logout()" title="Cerrar Sesión">🚪</button>
       </div>
