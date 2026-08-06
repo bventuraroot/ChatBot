@@ -146,5 +146,58 @@ document.addEventListener('DOMContentLoaded', () => {
   if (!window.location.pathname.includes('login.html')) {
     checkAuth();
     initUserHeader();
+    initMobileMenu();
   }
 });
+
+// ── Menú móvil con hamburguesa ────────────────────────────────────
+function initMobileMenu() {
+  // Ya existe?
+  if (document.getElementById('mobile-menu-btn')) return;
+
+  const sidebar = document.querySelector('.sidebar');
+  if (!sidebar) return;
+
+  // Botón hamburguesa
+  const menuBtn = document.createElement('button');
+  menuBtn.id = 'mobile-menu-btn';
+  menuBtn.className = 'mobile-menu-btn';
+  menuBtn.innerHTML = '☰';
+  menuBtn.title = 'Menú';
+  document.body.appendChild(menuBtn);
+
+  // Overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'sidebar-overlay';
+  overlay.id = 'sidebar-overlay';
+  document.body.appendChild(overlay);
+
+  function openMenu() {
+    sidebar.classList.add('open');
+    overlay.classList.add('open');
+    menuBtn.innerHTML = '✕';
+  }
+
+  function closeMenu() {
+    sidebar.classList.remove('open');
+    overlay.classList.remove('open');
+    menuBtn.innerHTML = '☰';
+  }
+
+  menuBtn.addEventListener('click', () => {
+    if (sidebar.classList.contains('open')) {
+      closeMenu();
+    } else {
+      openMenu();
+    }
+  });
+
+  overlay.addEventListener('click', closeMenu);
+
+  // Cerrar al hacer clic en un link del menú
+  sidebar.querySelectorAll('.nav-link').forEach(link => {
+    link.addEventListener('click', () => {
+      setTimeout(closeMenu, 150);
+    });
+  });
+}

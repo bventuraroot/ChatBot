@@ -245,6 +245,32 @@ io.on('connection', (socket) => {
     }
   });
 
+  // Actividad del visitante (para monitor en tiempo real)
+  socket.on('visitor_activity', (data) => {
+    if (!data) return;
+    const ctx = socket.userContext || {};
+    const activity = {
+      visitor_id: ctx.visitor_id || data.visitor_id || socket.id,
+      name: ctx.name || 'Visitante',
+      system: ctx.system || 'web',
+      page_url: ctx.page_url || data.page_url || 'unknown',
+      page_title: ctx.page_title || data.page_title || '',
+      type: data.type || 'unknown',
+      choice: data.choice || null,
+      time_on_page: data.time_on_page || null,
+      time: new Date().toISOString(),
+      socket_id: socket.id
+    };
+
+    // Guardar en memoria (últimos 200 eventos)
+    if (!global.activityLog) global.activityLog = [];
+    global.activityLog.unshift(activity);
+    if (global.activityLog.length > 200) global.activityLog.length = 200;
+
+    // Emitir al panel admin
+    io.emit('admin_activity', activity);
+  });
+
   socket.on('disconnect', () => {
     console.log('🔌 Cliente WebSocket desconectado:', socket.id);
   });

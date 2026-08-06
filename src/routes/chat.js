@@ -46,7 +46,18 @@ router.post('/upload', chatLimiter, upload.single('file'), (req, res) => {
   }
 });
 
-// POST /chat/message — Enviar mensaje desde el widget web vía REST (si no usa socket)
+// GET /chat/settings — Settings públicas para el widget (no requiere auth)
+router.get('/settings', async (req, res) => {
+  try {
+    const { dbAsync } = require('../../database/database');
+    const rows = await dbAsync.all("SELECT key, value FROM settings WHERE key IN ('BUG_REPORT_MESSAGE','WELCOME_MESSAGE','OUT_OF_HOURS_MESSAGE')");
+    const settings = {};
+    rows.forEach(r => settings[r.key] = r.value);
+    res.json(settings);
+  } catch (err) {
+    res.json({});
+  }
+});
 router.post('/message', chatLimiter, async (req, res) => {
   try {
     const { name, email, text, visitor_id, page_url, page_title } = req.body;

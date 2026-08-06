@@ -537,5 +537,238 @@ tr:last-child td { border-bottom: none; }
   padding: 25px;
   width: 90%;
   max-width: 480px;
+}
+
+/* ============================================
+   Mobile responsive (phones & small tablets)
+   ============================================ */
+
+/* Botón hamburguesa — oculto en desktop */
+.mobile-menu-btn {
+  display: none;
+  position: fixed;
+  top: 12px;
+  right: 16px;
+  z-index: 1100;
+  background: var(--bg-sidebar);
+  border: 1px solid var(--border-color);
   color: var(--text-main);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 1.3rem;
+  cursor: pointer;
+}
+
+/* Overlay para cuando el sidebar está abierto en móvil */
+.sidebar-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 1050;
+}
+
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .app-container {
+    flex-direction: column;
+  }
+
+  .mobile-menu-btn {
+    display: block;
+    position: fixed;
+    top: 12px;
+    right: 16px;
+    z-index: 1100;
+  }
+
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: -280px;
+    width: 270px;
+    height: 100vh;
+    height: 100dvh;
+    z-index: 1080;
+    transition: left 0.3s ease;
+    overflow-y: auto;
+    padding-top: max(20px, env(safe-area-inset-top));
+  }
+
+  .sidebar.open {
+    left: 0;
+  }
+
+  .sidebar-overlay.open {
+    display: block;
+  }
+
+  .main-content {
+    width: 100% !important;
+    margin-left: 0 !important;
+    padding-top: 50px;
+  }
+
+  .header {
+    flex-wrap: wrap;
+    padding: 12px 16px;
+    gap: 10px;
+  }
+
+  .header h1 {
+    font-size: 1.15rem;
+  }
+
+  .header p {
+    font-size: 0.8rem;
+  }
+
+  /* Inbox: apilar sidebar de conversaciones y chat */
+  .inbox-container {
+    flex-direction: column;
+    height: calc(100vh - 130px) !important;
+  }
+
+  .conversations-sidebar {
+    width: 100% !important;
+    max-height: 40%;
+    border-right: none !important;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .chat-area {
+    flex: 1;
+  }
+
+  .chat-input-area {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+
+  .chat-input-area input {
+    padding: 12px 14px;
+    font-size: 0.95rem;
+  }
+
+  /* Tablas y cards más compactas */
+  .stat-card {
+    padding: 16px;
+  }
+
+  .stat-card h2 {
+    font-size: 1rem;
+  }
+
+  .table-container {
+    overflow-x: auto;
+  }
+
+  table {
+    font-size: 0.8rem;
+  }
+
+  table th, table td {
+    padding: 8px 10px;
+  }
+
+  /* Tabs */
+  #tab-btn-general, #tab-btn-wa, #tab-btn-ai, #tab-btn-widget, #tab-btn-apikeys,
+  [id^="tab-btn-"] {
+    font-size: 0.75rem;
+    padding: 6px 10px;
+  }
+
+  /* Knowledge base */
+  .content-body {
+    padding: 12px;
+  }
+
+  .form-group {
+    margin-bottom: 12px;
+  }
+
+  .form-control {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+
+  textarea.form-control {
+    font-size: 0.9rem;
+  }
+
+  /* Monitoreo */
+  .monitor-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 10px;
+  }
+
+  .monitor-stat {
+    padding: 12px;
+  }
+
+  .monitor-stat .stat-val {
+    font-size: 1.5rem;
+  }
+
+  .activity-feed {
+    max-height: 300px !important;
+  }
+
+  /* Sidebar interno: ajustar logo */
+  .brand {
+    padding: 0 10px;
+  }
+
+  .brand-icon {
+    font-size: 1.3rem;
+  }
+
+  .brand-name {
+    font-size: 1rem;
+  }
+
+  .nav-link {
+    padding: 10px 12px;
+    font-size: 0.9rem;
+  }
+
+  .user-profile {
+    padding: 10px;
+  }
+}
+
+@media (max-width: 480px) {
+  .header {
+    padding: 8px 12px;
+  }
+
+  .header h1 {
+    font-size: 1rem;
+  }
+
+  .msg-bubble {
+    max-width: 90% !important;
+    font-size: 0.85rem !important;
+    padding: 10px 14px !important;
+  }
+
+  .msg-image {
+    max-width: 180px !important;
+    max-height: 180px !important;
+  }
+
+  .monitor-stats {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+
+  .stat-card {
+    padding: 12px;
+  }
+
+  [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
 }

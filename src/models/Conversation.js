@@ -118,6 +118,11 @@ class Conversation {
   static async resetUnread(id) {
     await dbAsync.run('UPDATE conversations SET unread_count = 0 WHERE id = ?', [id]);
   }
+
+  static async delete(id) {
+    await dbAsync.run('DELETE FROM messages WHERE conversation_id = ?', [id]);
+    await dbAsync.run('DELETE FROM conversations WHERE id = ?', [id]);
+  }
 }
 
 module.exports = Conversation;

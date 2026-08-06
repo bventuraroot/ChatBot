@@ -19,6 +19,7 @@
         <li><a href="index.html" class="nav-link">📊 Dashboard</a></li>
         <li><a href="inbox.html" class="nav-link">💬 Bandeja de Entrada</a></li>
         <li><a href="knowledge.html" class="nav-link">📚 Base de Conocimiento</a></li>
+        <li><a href="monitor.html" class="nav-link">📡 Monitoreo</a></li>
         <li><a href="settings.html" class="nav-link active">⚙️ Configuración</a></li>
       </ul>
 
@@ -110,6 +111,14 @@
             <div class="form-group" style="width: 100%;">
               <label class="form-label">Mensaje Fuera de Horario</label>
               <textarea id="setting-OUT_OF_HOURS_MESSAGE" class="form-control" rows="3"></textarea>
+            </div>
+
+            <div class="form-group" style="width: 100%;">
+              <label class="form-label">Mensaje de confirmación de Reporte de Bug</label>
+              <textarea id="setting-BUG_REPORT_MESSAGE" class="form-control" rows="2"></textarea>
+              <p style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                Mensaje que el bot envía al confirmar el envío de un reporte de bug.
+              </p>
             </div>
 
             <div style="display: flex; gap: 15px; width: 100%;">

@@ -14,6 +14,19 @@
   // Origen: dominio y página donde está incrustado el widget
   const pageUrl   = window.location.hostname || 'unknown';
   const pageTitle = document.title || '';
+  const pageLoadTime = Date.now();
+
+  // Settings del servidor (se cargan al iniciar)
+  let serverSettings = {
+    BUG_REPORT_MESSAGE: '🐛 Reporte de bug enviado. ¡Gracias! Un agente lo revisará pronto.'
+  };
+
+  fetch(`${serverUrl}/chat/settings`)
+    .then(r => r.json())
+    .then(data => {
+      if (data) Object.assign(serverSettings, data);
+    })
+    .catch(() => {});
 
   // Captura de errores de la página host para reportes de bugs
   const pageErrors = [];
@@ -127,6 +140,24 @@
     `;
     document.body.appendChild(bugModal);
 
+    // ── Heartbeat y visibilidad (para monitor de actividad) ─────────
+    setInterval(() => {
+      socket.emit('visitor_activity', {
+        type: 'heartbeat',
+        page_url: pageUrl,
+        page_title: pageTitle,
+        time_on_page: Math.floor((Date.now() - pageLoadTime) / 1000)
+      });
+    }, 30000);
+
+    document.addEventListener('visibilitychange', () => {
+      socket.emit('visitor_activity', {
+        type: document.hidden ? 'page_blur' : 'page_focus',
+        page_url: pageUrl,
+        page_title: pageTitle
+      });
+    });
+
     // ── Socket.IO ──────────────────────────────────────────────────
     const socket = io(serverUrl, {
       reconnection: true,
@@ -146,6 +177,13 @@
         role:   userRole,
         system: systemName,
         client_id: clientId,
+        page_url: pageUrl,
+        page_title: pageTitle
+      });
+
+      // Actividad: visitante se conectó
+      socket.emit('visitor_activity', {
+        type: 'connected',
         page_url: pageUrl,
         page_title: pageTitle
       });
@@ -299,7 +337,15 @@
         });
 
         // Mostrar confirmación en el chat
-        appendMsg('🐛 Reporte de bug enviado. ¡Gracias! Un agente lo revisará pronto.', 'bot');
+        appendMsg(serverSettings.BUG_REPORT_MESSAGE || '🐛 Reporte de bug enviado. ¡Gracias!', 'bot');
+
+        // Actividad: bug reportado
+        socket.emit('visitor_activity', {
+          type: 'bug_reported',
+          page_url: pageUrl,
+          page_title: pageTitle,
+          description_length: description.length
+        });
 
         // Abrir el widget para que vea el historial
         openWidget();
@@ -345,6 +391,7 @@
       const isOpen = widgetBox.classList.toggle('cb-open');
       if (isOpen) {
         lockBodyScroll();
+        socket.emit('visitor_activity', { type: 'chat_opened', page_url: pageUrl, page_title: pageTitle });
       } else {
         unlockBodyScroll();
       }
@@ -444,6 +491,13 @@
       appendMsg(text, 'customer');
       input.value = '';
 
+      socket.emit('visitor_activity', {
+        type: 'message_sent',
+        page_url: pageUrl,
+        page_title: pageTitle,
+        text_length: text.length
+      });
+
       socket.emit('webchat_message', {
         visitor_id: visitorId,
         name:   userName,
@@ -491,11 +545,13 @@
         const namePart = userName ? ' <strong>' + escapeHtml(userName) + '</strong>' : '';
         appendMsg(`¡Hola${namePart}! 👋 ¿En qué podemos ayudarte?`, 'bot');
         document.getElementById('cb-input-field').focus();
+        socket.emit('visitor_activity', { type: 'type_selected', choice: 'support', page_url: pageUrl, page_title: pageTitle });
       });
 
       document.getElementById('cb-type-bug').addEventListener('click', () => {
         div.remove();
         openBugModal();
+        socket.emit('visitor_activity', { type: 'type_selected', choice: 'bug', page_url: pageUrl, page_title: pageTitle });
       });
     }
 

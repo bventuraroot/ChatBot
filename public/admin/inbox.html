@@ -20,6 +20,7 @@
         <li><a href="index.html" class="nav-link">📊 Dashboard</a></li>
         <li><a href="inbox.html" class="nav-link active">💬 Bandeja de Entrada</a></li>
         <li><a href="knowledge.html" class="nav-link">📚 Base de Conocimiento</a></li>
+        <li><a href="monitor.html" class="nav-link">📡 Monitoreo</a></li>
         <li><a href="settings.html" class="nav-link">⚙️ Configuración</a></li>
       </ul>
 
@@ -136,7 +137,10 @@
             <div style="flex: 1; overflow: hidden;">
               <div style="display: flex; justify-content: space-between; align-items: center;">
                 <span style="font-weight: 600; font-size: 0.9rem;">${conv.contact_name || 'Cliente'}</span>
-                <span style="font-size: 0.7rem; color: var(--text-muted);">${timeStr}</span>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <span style="font-size: 0.7rem; color: var(--text-muted);">${timeStr}</span>
+                  <button class="btn-delete-conv" data-id="${conv.id}" title="Eliminar conversación" style="background:none;border:none;color:#ef4444;cursor:pointer;font-size:0.85rem;padding:0 4px;opacity:0.5;" onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0.5'">🗑️</button>
+                </div>
               </div>
               <div style="font-size: 0.8rem; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 2px;">
                 ${conv.last_message_text || 'Sin mensajes'}
@@ -149,8 +153,35 @@
           `;
           listEl.appendChild(item);
         });
+
+        // Delegación de clicks para botón eliminar
+        listEl.onclick = null; // limpiar anterior
+        listEl.addEventListener('click', (e) => {
+          const deleteBtn = e.target.closest('.btn-delete-conv');
+          if (!deleteBtn) return;
+          e.stopPropagation();
+          e.preventDefault();
+          const convId = parseInt(deleteBtn.dataset.id);
+          if (!convId) return;
+          deleteConversation(convId);
+        });
       } catch (err) {
         console.error('Error cargando conversaciones:', err);
+      }
+    }
+
+    async function selectConversation(id) {
+    async function deleteConversation(id) {
+      if (!confirm('¿Eliminar esta conversación y todos sus mensajes? Esta acción no se puede deshacer.')) return;
+      try {
+        await apiFetch(`/conversations/${id}`, { method: 'DELETE' });
+        if (activeConversationId === id) {
+          activeConversationId = null;
+          document.getElementById('chat-messages').innerHTML = '<div class="empty-chat">Selecciona una conversación</div>';
+        }
+        loadConversations();
+      } catch (err) {
+        alert('Error al eliminar: ' + err.message);
       }
     }
 

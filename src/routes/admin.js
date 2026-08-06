@@ -496,4 +496,26 @@ router.delete('/clients/:id', async (req, res) => {
   }
 });
 
+// DELETE /conversations/:id — Eliminar conversación y sus mensajes
+router.delete('/conversations/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const Conversation = require('../models/Conversation');
+    const conversation = await Conversation.findById(id);
+    if (!conversation) return res.status(404).json({ error: 'Conversación no encontrada' });
+
+    await Conversation.delete(id);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// GET /activity — Últimos eventos de actividad (monitor)
+router.get('/activity', (req, res) => {
+  const limit = parseInt(req.query.limit) || 100;
+  const log = global.activityLog || [];
+  res.json(log.slice(0, limit));
+});
+
 module.exports = router;
