@@ -180,21 +180,22 @@
           `;
           listEl.appendChild(item);
         });
-
-        // Delegación de clicks para botón eliminar
-        listEl.onclick = null; // limpiar anterior
-        listEl.addEventListener('click', (e) => {
-          const deleteBtn = e.target.closest('.btn-delete-conv');
-          if (!deleteBtn) return;
-          e.stopPropagation();
-          e.preventDefault();
-          const convId = parseInt(deleteBtn.dataset.id);
-          if (!convId) return;
-          deleteConversation(convId);
-        });
       } catch (err) {
         console.error('Error cargando conversaciones:', err);
       }
+    }
+
+    function initDeleteListener() {
+      const listEl = document.getElementById('conversations-list');
+      listEl.addEventListener('click', (e) => {
+        const deleteBtn = e.target.closest('.btn-delete-conv');
+        if (!deleteBtn) return;
+        e.stopPropagation();
+        e.preventDefault();
+        const convId = parseInt(deleteBtn.dataset.id);
+        if (!convId) return;
+        deleteConversation(convId);
+      });
     }
 
     async function deleteConversation(id) {
@@ -515,6 +516,7 @@
 
     document.addEventListener('DOMContentLoaded', () => {
       initSocket();
+      initDeleteListener();
       loadConversations();
       document.addEventListener('paste', handlePaste);
     });
