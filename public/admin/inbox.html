@@ -51,15 +51,18 @@
         <!-- Área de Chat -->
         <div class="chat-area">
           <div class="chat-header" id="chat-header" style="display: none;">
-            <div>
-              <h3 id="chat-contact-name">Selecciona un chat</h3>
-              <p id="chat-contact-info" style="font-size: 0.8rem; color: var(--text-muted);"></p>
-              <p id="chat-assignment-info" style="font-size: 0.8rem; margin-top: 4px;"></p>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <button id="btn-back-to-list" class="btn btn-secondary mobile-back-btn" onclick="showConversationList()" title="Volver a conversaciones">←</button>
+              <div>
+                <h3 id="chat-contact-name">Selecciona un chat</h3>
+                <p id="chat-contact-info" style="font-size: 0.8rem; color: var(--text-muted);"></p>
+                <p id="chat-assignment-info" style="font-size: 0.8rem; margin-top: 4px;"></p>
+              </div>
             </div>
-            <div style="display: flex; gap: 10px;">
-              <button id="btn-take-conv" class="btn btn-secondary" onclick="takeConversation()" style="display:none;">🙋 Tomar Conversación</button>
-              <button id="btn-return-to-bot" class="btn btn-secondary" onclick="returnToBot()" style="display:none;">🤖 Devolver al Bot</button>
-              <button id="btn-toggle-status" class="btn btn-secondary" onclick="toggleConversationStatus()">Cerrar Chat</button>
+            <div style="display: flex; gap: 10px; align-items: center;">
+              <button id="btn-take-conv" class="btn btn-secondary" onclick="takeConversation()" style="display:none;">🙋 Tomar</button>
+              <button id="btn-return-to-bot" class="btn btn-secondary" onclick="returnToBot()" style="display:none;">🤖 Bot</button>
+              <button id="btn-toggle-status" class="btn btn-secondary" onclick="toggleConversationStatus()">Cerrar</button>
             </div>
           </div>
 
@@ -71,8 +74,10 @@
 
           <div class="chat-input-area" id="chat-input-area" style="display: none;">
             <input type="file" id="img-upload-input" accept="image/*" style="display:none;" onchange="uploadAndSendImage(event)">
-            <button class="btn btn-secondary" onclick="document.getElementById('img-upload-input').click()" title="Adjuntar captura/imagen (o Ctrl+V)">📎</button>
-            <input type="text" id="msg-input" class="form-control" placeholder="Escribe un mensaje... o pega una imagen (Ctrl+V)" onkeypress="handleKeyPress(event)">
+            <input type="file" id="camera-input" accept="image/*" capture="environment" style="display:none;" onchange="uploadAndSendImage(event)">
+            <button class="btn btn-secondary" onclick="document.getElementById('camera-input').click()" title="Tomar foto">📷</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('img-upload-input').click()" title="Adjuntar imagen">🖼️</button>
+            <input type="text" id="msg-input" class="form-control" placeholder="Escribe un mensaje..." onkeypress="handleKeyPress(event)">
             <button class="btn btn-accent" onclick="sendMessage()">Enviar ➔</button>
           </div>
         </div>
@@ -198,6 +203,15 @@
       });
     }
 
+    function showConversationList() {
+      if (window.innerWidth <= 768) {
+        document.querySelector('.conversations-sidebar').style.display = 'flex';
+        document.getElementById('chat-header').style.display = 'none';
+        document.getElementById('chat-input-area').style.display = 'none';
+        document.getElementById('msg-input').blur();
+      }
+    }
+
     async function deleteConversation(id) {
       if (!confirm('¿Eliminar esta conversación y todos sus mensajes? Esta acción no se puede deshacer.')) return;
       try {
@@ -215,6 +229,14 @@
     async function selectConversation(id) {
       activeConversationId = id;
       loadConversations();
+
+      // En móvil: ocultar sidebar y mostrar solo el chat
+      if (window.innerWidth <= 768) {
+        document.querySelector('.conversations-sidebar').style.display = 'none';
+        document.getElementById('chat-header').style.display = 'flex';
+        document.getElementById('chat-input-area').style.display = 'flex';
+        document.getElementById('btn-back-to-list').style.display = 'flex';
+      }
 
       try {
         const data = await apiFetch(`/conversations/${id}/messages`);
