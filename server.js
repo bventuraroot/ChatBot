@@ -63,21 +63,27 @@ app.use((req, res, next) => {
 // incluir media en base64 (imágenes, audio, video) que superan los 100KB
 // por defecto de Express (causa PayloadTooLargeError).
 app.use(express.json({
-  limit: '10mb',
+  limit: '50mb',
   verify: (req, res, buf) => {
     req.rawBody = buf.toString('utf8');
   }
 }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // Manejo de errores de parsing del body (JSON inválido, payload demasiado grande)
+// IMPORTANTE: los errores 413/400 de Express NO pasan por el middleware CORS normal,
+// así que hay que incluir los headers CORS manualmente aquí.
 app.use((err, req, res, next) => {
   if (err && (err.type === 'entity.too.large' || err.status === 413)) {
     console.error('❌ Payload demasiado grande rechazado:', err.message);
-    return res.status(413).json({ error: 'Payload demasiado grande' });
+    res.set('Access-Control-Allow-Origin', '*');
+    res.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.set('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-API-KEY');
+    return res.status(413).json({ error: 'Payload demasiado grande. El límite es 50MB.' });
   }
   if (err && (err.type === 'entity.parse.failed' || err.status === 400)) {
     console.error('❌ JSON inválido en la petición:', err.message);
+    res.set('Access-Control-Allow-Origin', '*');
     return res.status(400).json({ error: 'JSON inválido en la petición' });
   }
   next(err);

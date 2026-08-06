@@ -25,7 +25,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
+  limits: { fileSize: 50 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
     const allowed = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (allowed.includes(file.mimetype)) cb(null, true);
@@ -34,16 +34,25 @@ const upload = multer({
 });
 
 // POST /chat/upload — Subir imagen desde el widget web
-router.post('/upload', chatLimiter, upload.single('file'), (req, res) => {
-  try {
-    if (!req.file) return res.status(400).json({ error: 'No se recibió ninguna imagen' });
-    res.json({
-      url: `/uploads/${req.file.filename}`,
-      media_type: 'image'
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
+router.post('/upload', chatLimiter, (req, res, next) => {
+  upload.single('file')(req, res, (err) => {
+    if (err) {
+      res.set('Access-Control-Allow-Origin', '*');
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: 'La imagen excede el límite de 50MB' });
+      }
+      return res.status(400).json({ error: err.message || 'Error al subir la imagen' });
+    }
+    try {
+      if (!req.file) return res.status(400).json({ error: 'No se recibió ninguna imagen' });
+      res.json({
+        url: `/uploads/${req.file.filename}`,
+        media_type: 'image'
+      });
+    } catch (e) {
+      res.status(500).json({ error: e.message });
+    }
+  });
 });
 
 // GET /chat/settings — Settings públicas para el widget (no requiere auth)
